@@ -151,7 +151,7 @@ InternVL2-26B -> huggingface_multimodal (packaged)
 ...
 </pre>
 
-### Running a game, score and evaluate
+### Running and benchmarking
 
 Let's run the existing `taboo` game using `gpt-4o-2024-08-06`. To run such commercial model from OpenAI, it is required to have `key.json` file with the API and organization keys filled:
 
@@ -168,16 +168,10 @@ Then run the following script that generates the transcript for each game play (
 (myclem) clem transcribe               # translates interactions into html files for all games that are accessible.
 ```
 
-Run the scoring method for the game, it generates `scores.json` file:
-
-```
-(myclem) clem score                    # computes individual performance measures for all games that are accessible
-```
-
 Finally, run `benchmark eval`:
 
 ```
-(myclem) clem eval                     # computes overall performances measures; requires scores to be computed before
+(myclem) clem eval                     # computes overall performances measures
 ```
 
 It generates `results.html`, `results.csv` and `raw.csv` files inside the `results` directory. `results.html` or `results.csv` compares all models that were run. `raw.csv` is the dump of all averaged scores (episode and turn) that can be used for further analysis.
@@ -271,9 +265,6 @@ Running `eval` script by default looks for `results` folder. If you specified di
 ```
 (myclem) clem transcribe -r results_en
 (myclem) clem transcribe -r results_de
-
-(myclem) clem score -r results_en
-(myclem) clem score -r results_de
 
 (myclem) clem eval -r results_en
 (myclem) clem eval -r results_de
