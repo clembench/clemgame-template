@@ -1,0 +1,9 @@
+{
+  "openai": {"organisation": "", "api_key": ""},
+  "anthropic": {"api_key": ""},
+  "google": {"api_key":  ""},
+  "cohere": {"api_key": ""},
+  "mistral": {"api_key": ""},
+  "huggingface": {"api_key": "", "organisation": ""},
+  "generic_openai_compatible": {"api_key":"", "base_url": ""}
+}
