@@ -1,19 +1,19 @@
 #!/bin/bash
 # Usage: scripts/run_benchmark.sh
 
-# do this if running HuggingFace models so that the model weights are downloaded under this directory
+# do this if running HuggingFace models so that the model weights are downloaded under this directory. For API-based models, it can be ignored.
 export HUGGINGFACE_HUB_CACHE=/data/hakimov/huggingface_cache
 
-# set the GPU#0 to be used for inferencing
+# set the GPU#0 to be used for inferencing. For API-based models, it can be ignored
 export CUDA_VISIBLE_DEVICES=0
 
-# activate  the virtual environment
+# activate  the virtual environment, assuming that the virtual environment files are located under "venv" folder (adjust if it is set up differently)
 source venv/bin/activate
 export PYTHONPATH=.:$PYTHONPATH
 
 mkdir -p logs
 
-version="v1"
+
 games=(
 "taboo"
 )
