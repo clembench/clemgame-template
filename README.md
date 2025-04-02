@@ -176,6 +176,9 @@ Finally, run `benchmark eval`:
 
 It generates `results.html`, `results.csv` and `raw.csv` files inside the `results` directory. `results.html` or `results.csv` compares all models that were run. `raw.csv` is the dump of all averaged scores (episode and turn) that can be used for further analysis.
 
+**Benchmarking script**: We also provided a script to benchmark any implemented game with multiple models. See `run_benchmark.sh` and adjust the script where needed.
+
+
 
 #### More options
 
