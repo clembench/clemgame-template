@@ -1,9 +1,12 @@
-# clembench: A Framework for the Systematic Evaluation of Chat-Optimized Language Models as Conversational Agents
+# Template for creating new `clemgames'
 
-The cLLM (chat-optimized Large Language Model, "clem") framework tests such models' ability to engage in games – rule-constituted activities played using language.
-The framework is a systematic way of probing for the situated language understanding of language using agents.
+This repository provides example code for starting to develop new games for the `clemcore' environment, as used in the `clembench' project.
 
-> Chalamalasetti, K., Götze, J., Hakimov, S., Madureira, B., Sadler, P., & Schlangen, D. (2023). clembench: Using Game Play to Evaluate Chat-Optimized Language Models as Conversational Agents (arXiv:2305.13455). arXiv. https://doi.org/10.48550/arXiv.2305.13455
+[documentation to be further adapted]
+
+- clemcore (can be installed via `pip`, access to this code is normally not needed for game development): <https://github.com/clp-research/clemcore>
+- clembench (more examples of games, not all of which however are making use of the newest features, which is why it is better to start with the code in the present repository): <https://github.com/clp-research/clembench}>
+
 
 ### Evaluation Results
 
