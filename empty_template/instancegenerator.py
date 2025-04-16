@@ -1,4 +1,4 @@
-"""Template script for instancegeneration.
+"""Template script for instance generation.
 
 usage:
 python3 instancegenerator.py
