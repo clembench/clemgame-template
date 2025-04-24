@@ -4,7 +4,8 @@ import logging
 import numpy as np
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameRecorder
+from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameRecorder, \
+    GameException, ParseError, ValidationError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
@@ -36,7 +37,29 @@ class SomeGameMaster(DialogueGameMaster):
 
         self.add_player(self.some_player, initial_context=game_instance['initial_prompt'])
 
-        self.invalid_response = False
+        self.success = False
+
+    def _parse_response(self, player: Player, response: str) -> str:
+        if response:
+            return response
+        else:
+            raise ParseError
+
+    def _on_parse_error(self, error: GameException):
+        self.success = False
+
+    def _validate_player_response(self, player: Player, utterance: str) -> bool:
+        if utterance:
+            return True
+        else:
+            raise ValidationError
+
+    def _on_validation_error(self, error: GameException):
+        self.success = False
+
+    def _on_valid_player_response(self, player: Player, parsed_response: str):
+        self.success = True
+        self.log_to_self('player_response', parsed_response)
 
     def _does_game_proceed(self):
         """
@@ -44,27 +67,37 @@ class SomeGameMaster(DialogueGameMaster):
         """
         return True
 
-    def _validate_player_response(self, player: Player, utterance: str) -> bool:
-        if utterance:
-            return True
-        return False
-
     def compute_response_score(self, response, context):
-        return 1 if self.is_success() else 0
+        return 1 if self.success else 0
 
     def compute_episode_score(self):
-        if self.is_success():
+        if self.success:
             return 100 / (self.current_round + 1)  # zero-based
         return 0
+
+    def _on_after_game(self):
+        if self.success:
+            self.log_key('success', 'true')
+        else:
+            self.log_key('success', 'false')
 
 
 class SomeGameScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
-    def compute_scores(self, episode_interactions: Dict) -> None:
-        """ Episode level scores"""
-        # TODO: add minimal GameScorer hook methods usage instead of compute_scores()
+    def score_turns(self, episode_interactions: Dict) -> None:
+        """ Turn-level scores """
+        for turn_idx in range(len(episode_interactions)):
+            for event in episode_interactions[turn_idx]:
+                if event['type'] == 'player_response':
+                    self.log_turn_score(turn_idx, 'response_received', 1)
+
+    def log_main_score(self, episode_interactions: Dict):
+        if episode_interactions['success'] == 'true':
+            self.log_episode_score("BENCH_SCORE", 100)
+        elif episode_interactions['success'] == 'false':
+            self.log_episode_score("BENCH_SCORE", 0)
 
 
 class SomeGameBenchmark(GameBenchmark):
