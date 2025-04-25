@@ -48,16 +48,9 @@ class SomeGameMaster(DialogueGameMaster):
     def _on_parse_error(self, error: GameError):
         self.success = False
 
-    def _validate_player_response(self, player: Player, utterance: str) -> bool:
-        if utterance:
-            return True
-        else:
+    def _advance_game(self, player: Player, parsed_response: str):
+        if not parsed_response:
             raise RuleViolationError
-
-    def _on_rule_violation_error(self, error: GameError):  # just guessing what this is called in the base class, or if it even still exists....
-        self.success = False
-
-    def _advance_game(self, player: Player, parsed_response: str):  # assuming this 1-to-1 replaces _on_valid_player_response, which I can't be sure about since I can't check the base class
         self.success = True
         self.log_to_self('player_response', parsed_response)
 
@@ -67,7 +60,7 @@ class SomeGameMaster(DialogueGameMaster):
         """
         return True
 
-    def compute_response_score(self, response, context):
+    def compute_turn_score(self):
         return 1 if self.success else 0
 
     def compute_episode_score(self):
