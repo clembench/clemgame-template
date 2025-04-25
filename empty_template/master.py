@@ -4,8 +4,8 @@ import logging
 import numpy as np
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameRecorder, \
-    GameException, ParseError, ValidationError
+from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
+    GameError, ParseError, RuleViolationError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
@@ -45,19 +45,19 @@ class SomeGameMaster(DialogueGameMaster):
         else:
             raise ParseError
 
-    def _on_parse_error(self, error: GameException):
+    def _on_parse_error(self, error: GameError):
         self.success = False
 
     def _validate_player_response(self, player: Player, utterance: str) -> bool:
         if utterance:
             return True
         else:
-            raise ValidationError
+            raise RuleViolationError
 
-    def _on_validation_error(self, error: GameException):
+    def _on_rule_violation_error(self, error: GameError):  # just guessing what this is called in the base class, or if it even still exists....
         self.success = False
 
-    def _on_valid_player_response(self, player: Player, parsed_response: str):
+    def _advance_game(self, player: Player, parsed_response: str):  # assuming this 1-to-1 replaces _on_valid_player_response, which I can't be sure about since I can't check the base class
         self.success = True
         self.log_to_self('player_response', parsed_response)
 
