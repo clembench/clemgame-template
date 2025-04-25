@@ -98,6 +98,7 @@ class Taboo(DialogueGameMaster):
         self.add_player(self.describer, initial_context=describer_initial_prompt)
         self.add_player(self.guesser, initial_prompt=guesser_initial_prompt)
 
+        self.success, self.aborted, self.failure = False, False, False
         self.clue_error = None
         self.guess_word = None
 
@@ -111,10 +112,12 @@ class Taboo(DialogueGameMaster):
         if player == self.describer:
             prefix = CLUE_PREFIX
         assert prefix is not None, f"Communication protocol not specified for player {player}"
-        # validate communication protocol
+
+        # validate communication protocol (this could also be done for each player individually)
         if not response.startswith(prefix):
             raise ParseError(f"response must start with {prefix}", response)
         self.log_to_self("valid response", "continue")
+
         # parse response content (here only remove the prefix)
         return response.replace(prefix, "").strip()
 
@@ -129,6 +132,7 @@ class Taboo(DialogueGameMaster):
             self.log_to_self("valid clue", parsed_response)
             # transition game state
             self.set_context_for(self.guesser, f"{CLUE_PREFIX} {self.guess_word}")
+            
         if player == self.guesser:
             # validate game rules
             if len(parsed_response.split(" ")) > 0:
@@ -137,6 +141,7 @@ class Taboo(DialogueGameMaster):
             # transition game state
             self.guess_word = parsed_response[0]
             self.set_context_for(self.describer, f"{GUESS_PREFIX} {self.guess_word}")  # ignored if success
+
         # check game end conditions
         if self.guess_word.lower() == self.target_word:
             self.log_to_self("correct guess", "end game")
