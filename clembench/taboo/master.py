@@ -132,7 +132,7 @@ class Taboo(DialogueGameMaster):
             self.log_to_self("valid clue", parsed_response)
             # transition game state
             self.set_context_for(self.guesser, f"{CLUE_PREFIX} {self.guess_word}")
-            
+
         if player == self.guesser:
             # validate game rules
             if len(parsed_response.split(" ")) > 0:
@@ -163,116 +163,42 @@ class Taboo(DialogueGameMaster):
             return 100 / (self.current_round + 1)  # zero-based
         return 0
 
+    def _on_after_game(self):
+        self.log_key(METRIC_ABORTED, int(self.aborted))
+        self.log_key(METRIC_LOSE, int(self.failure))
+        self.log_key(METRIC_SUCCESS, int(self.success))
+
 
 class TabooScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
-    def compute_scores(self, episode_interactions: Dict) -> None:
-        """ Episode level scores"""
-        turn_scores = []
-        prev_guess = None
-        prev_guess_counter = 0
-        prev_clue = None
-        prev_clue_counter = 0
-        invalid_response = False  # Note: This only takes into consideration that both players were compliant or not
+    def compute_round_score(self, round_idx, round_events: List[Dict]) -> None:
         guesser_won = False
-        for turn_idx, turn in enumerate(episode_interactions["turns"]):
-            turn_score = {"guess": None, "clue": None, "request_count": 1}
+        for event in round_events:
+            if event["action"]["type"] == "correct guess":
+                guesser_won = True
+        self.log_round_score(round_idx, 'Accuracy', 1 if guesser_won else 0)
 
-            for event in turn:
-                action = event["action"]
-                if action["type"] == "invalid format":
-                    invalid_response = True
-                if action["type"] == "valid guess":
-                    turn_score["guess"] = action["content"]
-                if action["type"] == "valid clue":
-                    turn_score["clue"] = action["content"]
-                if action["type"] == "correct guess":
-                    guesser_won = True
-
-            if invalid_response:
-                turn_score["violated_request_count"] = 1
-                turn_score["parsed_request_count"] = 0
-            else:
-                turn_score["violated_request_count"] = 0
-                turn_score["parsed_request_count"] = 1
-
-            if turn_score["guess"] is not None and turn_score["guess"] == prev_guess:  # might be None, if clue is wrong
-                prev_guess_counter += 1
-            if turn_score["clue"] is not None and turn_score["clue"] == prev_clue:
-                prev_clue_counter += 1
-            self.log_turn_score(turn_idx, 'Accuracy', 1 if guesser_won else 0)
-            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT_VIOLATED, turn_score["violated_request_count"])
-            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT_PARSED, turn_score["parsed_request_count"])
-            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT, turn_score["request_count"])
-            prev_guess = turn_score["guess"]
-            prev_clue = turn_score["clue"]
-            turn_scores.append(turn_score)
-
-        violated_request_count = sum([turn["violated_request_count"] for turn in turn_scores])
-        self.log_episode_score(METRIC_REQUEST_COUNT_VIOLATED, violated_request_count)
-
-        parsed_request_count = sum([turn["parsed_request_count"] for turn in turn_scores])
-        self.log_episode_score(METRIC_REQUEST_COUNT_PARSED, parsed_request_count)
-
-        request_count = sum([turn["request_count"] for turn in turn_scores])
-        self.log_episode_score(METRIC_REQUEST_COUNT, request_count)
-
-        self.log_episode_score(METRIC_REQUEST_SUCCESS, parsed_request_count / request_count)
-        # checking the last guess (could be None) is ok,
-        # b.c. the game ends only successfully, when there is a correct guess
-
-        # Common metrics
-        if invalid_response:  # whether a violation of the game rules happened (response not parsable)
-            self.log_episode_score(METRIC_ABORTED, 1)
-            self.log_episode_score(METRIC_SUCCESS, 0)
-            self.log_episode_score(METRIC_LOSE, 0)
-            # Game-specific metrics
-            self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
+    def compute_episode_scores(self, interactions: Dict):
+        num_rounds = len(interactions["turns"])
+        if interactions[METRIC_SUCCESS]:
+            self.log_episode_score(BENCH_SCORE, 100 / num_rounds)
+        elif interactions[METRIC_LOSE]:
+            self.log_episode_score(BENCH_SCORE, 0)
+        elif interactions[METRIC_ABORTED]:
+            self.log_episode_score(BENCH_SCORE, np.nan)
         else:
-            self.log_episode_score(METRIC_ABORTED, 0)
-            if guesser_won:
-                self.log_episode_score(METRIC_SUCCESS, 1)
-                self.log_episode_score(METRIC_LOSE, 0)
-                self.log_episode_score(BENCH_SCORE, 100 / len(turn_scores))  # how early the guesser found the word
-            else:
-                self.log_episode_score(METRIC_SUCCESS, 0)
-                self.log_episode_score(METRIC_LOSE, 1)
-                self.log_episode_score(BENCH_SCORE, 0)  # word not found
-
-        # Game-specific metrics
-        # How often the Guesser repeated a guess
-        self.log_episode_score('Repetition-Guesser', prev_guess_counter)
-        # How often the Describer repeated itself
-        self.log_episode_score('Repetition-Describer', prev_clue_counter)
-        # this might require a side-loop between describer and GM (game should not continue with Guesser)
-        # self.log_episode_score('Rule-following', ...)
+            raise ValueError("Missing outcome value (success, failure, abort) in interactions.json")
 
 
 class TabooGameBenchmark(GameBenchmark):
 
     def __init__(self, game_spec: GameSpec):
         super().__init__(game_spec)
-        # TODO: experiment could also be set through GameSpec
 
     def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
         return Taboo(self.game_name, self.game_path, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return TabooScorer(self.game_name, experiment, game_instance)
-
-
-def main():
-    # select one experiment and instance
-    game_path = os.path.dirname(os.path.abspath(__file__))
-    experiments = file_utils.load_json("in/instances.json", game_path)
-    experiment_1 = experiments["experiments"][0]
-    game_1 = experiment_1["game_instances"][0]
-    master = Taboo("taboo", experiment_1, ["mock", "mock"])
-    master.setup(**game_1)
-    master.play()
-
-
-if __name__ == '__main__':
-    main()
