@@ -6,9 +6,8 @@ import numpy as np
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
 from clemcore.clemgame.master import ParseError, RuleViolationError, GameError
-from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
-    METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
-from clemcore.utils import file_utils, string_utils
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
+from clemcore.utils import string_utils
 
 import nltk
 from nltk.corpus import stopwords
@@ -131,23 +130,23 @@ class Taboo(DialogueGameMaster):
             check_clue(parsed_response, self.target_word, self.related_words)  # throws RuleViolationError
             self.log_to_self("valid clue", parsed_response)
             # transition game state
-            self.set_context_for(self.guesser, f"{CLUE_PREFIX} {self.guess_word}")
+            self.set_context_for(self.guesser, f"{CLUE_PREFIX} {parsed_response}")
 
         if player == self.guesser:
             # validate game rules
-            if len(parsed_response.split(" ")) > 0:
+            if len(parsed_response.split(" ")) > 1:
                 raise RuleViolationError("guess has more than one word", parsed_response)
             self.log_to_self("valid guess", parsed_response)
             # transition game state
-            self.guess_word = parsed_response[0]
+            self.guess_word = parsed_response
             self.set_context_for(self.describer, f"{GUESS_PREFIX} {self.guess_word}")  # ignored if success
 
-        # check game end conditions
-        if self.guess_word.lower() == self.target_word:
-            self.log_to_self("correct guess", "end game")
-            self.success = True
-        elif self.current_round == self.max_rounds - 1:  # zero-based
-            raise RuleViolationError(f"max rounds ({self.max_rounds}) reached")
+            # check game end conditions
+            if self.guess_word.lower() == self.target_word:
+                self.log_to_self("correct guess", "end game")
+                self.success = True
+            elif self.current_round == self.max_rounds - 1:  # zero-based
+                raise RuleViolationError(f"max rounds ({self.max_rounds}) reached")
 
     def _on_game_error(self, error: GameError):
         # note: we could also introduce more concrete subclasses e.g. InvalidClueError and handle them here individually
