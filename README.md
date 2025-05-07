@@ -12,6 +12,16 @@ This repository provides example code for starting to develop new games for the 
 
 On the [main project website](https://clembench.github.io) , under [leaderboard](https://clembench.github.io/leaderboard.html).
 
+# How to Prototype Games
+
+We have linked here the documentation on how to prototype games, needed basic knowledge and sample code under these notebooks:
+
+[How to make a clemgame](https://github.com/clp-research/clemcore/blob/main/docs/howto_make_a_clemgame.ipynb)
+
+[How to prototype games](https://github.com/clp-research/clemcore/blob/main/docs/howto_prototype_games.ipynb)
+
+
+
 
 # Using the clemcore CLI
 
