@@ -38,7 +38,7 @@ Then install `clemcore`:
 (myclem) pip install clemcore
 ``` 
 
-Additional install options are:
+To use local GPUs (via `transformers` or `vllm` libraries etc.) install the following libraries:
 ```
 (myclem) pip install clemcore[huggingface] # dependencies for the local hf backend
 (myclem) pip install clemcore[vllm]        # dependencies for the local vllm backend
