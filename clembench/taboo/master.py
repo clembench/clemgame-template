@@ -1,5 +1,5 @@
-import os.path
-from typing import Dict, Tuple, List, Union
+from dataclasses import dataclass
+from typing import Dict, List
 import logging
 import numpy as np
 
@@ -46,19 +46,34 @@ class WordDescriber(Player):
         return f"{CLUE_PREFIX} {clue}"
 
 
-def check_clue(response: str, target_word: str, related_words: List[str], stemmer=EN_STEMMER):
+@dataclass
+class GameState:
+    target_word: str
+    related_words: List[str]
+    max_rounds: int
+    describer_initial_prompt: str
+    guesser_initial_prompt: str
+    success: bool = False
+    failure: bool = False
+    aborted: bool = False
+    clue_error: str = None
+    last_clue: str = None
+    last_guess: str = None
+
+
+def check_clue(response: str, state: GameState, stemmer=EN_STEMMER):
     clue_words = string_utils.remove_punctuation(response).lower().split(" ")
     clue_words = [clue_word for clue_word in clue_words if clue_word not in EN_STOPWORDS]
     clue_word_stems = [stemmer.stem(clue_word) for clue_word in clue_words]
-    target_word_stem = stemmer.stem(target_word)
-    related_word_stems = [stemmer.stem(related_word) for related_word in related_words]
+    target_word_stem = stemmer.stem(state.target_word)
+    related_word_stems = [stemmer.stem(related_word) for related_word in state.related_words]
 
     for clue_word, clue_word_stem in zip(clue_words, clue_word_stems):  # raise first appearing exception
         if target_word_stem == clue_word_stem:
-            reason = f"Target word '{target_word}' (stem={target_word_stem}) " \
+            reason = f"Target word '{state.target_word}' (stem={target_word_stem}) " \
                      f"is similar to clue word '{clue_word}' (stem={clue_word_stem})"
             raise RuleViolationError(reason, response)
-        for related_word, related_word_stem in zip(related_words, related_word_stems):
+        for related_word, related_word_stem in zip(state.related_words, related_word_stems):
             if related_word_stem == clue_word_stem:
                 reason = f"Related word '{related_word}' (stem={related_word_stem}) " \
                          f"is similar to clue word '{clue_word}' (stem={clue_word_stem})"
@@ -74,22 +89,18 @@ class Taboo(DialogueGameMaster):
 
     def __init__(self, game_name: str, game_path: str, experiment: Dict, player_models: List[Model]):
         super().__init__(game_name, game_path, experiment, player_models)
-        self.max_rounds: int = experiment["max_turns"]
 
     def _on_setup(self, **game_instance):
-        self.game_instance = game_instance
-
-        self.target_word = game_instance["target_word"]
-        self.related_words = game_instance["related_word"]
-
         describer_initial_prompt = self.experiment["describer_initial_prompt"]
-        describer_initial_prompt = describer_initial_prompt.replace("$TARGET_WORD$", self.target_word)
-        rel_words = f"- {self.related_words[0]}\n- {self.related_words[1]}\n- {self.related_words[2]}"
+        describer_initial_prompt = describer_initial_prompt.replace("$TARGET_WORD$", game_instance["target_word"])
+        rel_words = (f"- {game_instance['related_word'][0]}\n"
+                     f"- {game_instance['related_word'][1]}\n"
+                     f"- {game_instance['related_word'][2]}")
         describer_initial_prompt = describer_initial_prompt.replace("$REL_WORD$", rel_words)
-        describer_initial_prompt = describer_initial_prompt.replace("$N$", str(self.max_rounds))
+        describer_initial_prompt = describer_initial_prompt.replace("$N$", str(self.experiment["max_turns"]))
 
         guesser_initial_prompt = self.experiment["guesser_initial_prompt"]
-        guesser_initial_prompt = guesser_initial_prompt.replace("$N$", str(self.max_rounds))
+        guesser_initial_prompt = guesser_initial_prompt.replace("$N$", str(self.experiment["max_turns"]))
 
         self.describer = WordDescriber(self.player_models[0])
         self.guesser = WordGuesser(self.player_models[1])
@@ -97,12 +108,15 @@ class Taboo(DialogueGameMaster):
         self.add_player(self.describer, initial_context=describer_initial_prompt)
         self.add_player(self.guesser, initial_prompt=guesser_initial_prompt)
 
-        self.success, self.aborted, self.failure = False, False, False
-        self.clue_error = None
-        self.guess_word = None
+        # arguments in same order as above
+        self.state = GameState(game_instance["target_word"],
+                               game_instance["related_word"],
+                               self.experiment["max_turns"],
+                               describer_initial_prompt,
+                               guesser_initial_prompt)
 
     def _does_game_proceed(self):
-        return not (self.aborted or self.failure or self.success)
+        return not (self.state.aborted or self.state.failure or self.state.success)
 
     def _parse_response(self, player: Player, response: str) -> str:
         prefix = None
@@ -122,14 +136,15 @@ class Taboo(DialogueGameMaster):
 
     def _on_parse_error(self, error: ParseError):
         self.log_to_self("invalid format", "abort game")
-        self.aborted = True
+        self.state.aborted = True
 
     def _advance_game(self, player: Player, parsed_response: str):
         if player == self.describer:
             # validate game rules
-            check_clue(parsed_response, self.target_word, self.related_words)  # throws RuleViolationError
+            check_clue(parsed_response, self.state)  # throws RuleViolationError
             self.log_to_self("valid clue", parsed_response)
             # transition game state
+            self.state.last_clue = parsed_response
             self.set_context_for(self.guesser, f"{CLUE_PREFIX} {parsed_response}")
 
         if player == self.guesser:
@@ -138,34 +153,34 @@ class Taboo(DialogueGameMaster):
                 raise RuleViolationError("guess has more than one word", parsed_response)
             self.log_to_self("valid guess", parsed_response)
             # transition game state
-            self.guess_word = parsed_response
-            self.set_context_for(self.describer, f"{GUESS_PREFIX} {self.guess_word}")  # ignored if success
+            self.state.last_guess = parsed_response
+            self.set_context_for(self.describer, f"{GUESS_PREFIX} {self.state.last_guess}")  # ignored if success
 
             # check game end conditions
-            if self.guess_word.lower() == self.target_word:
+            if self.state.last_guess.lower() == self.state.target_word:
                 self.log_to_self("correct guess", "end game")
-                self.success = True
-            elif self.current_round == self.max_rounds - 1:  # zero-based
-                raise RuleViolationError(f"max rounds ({self.max_rounds}) reached")
+                self.state.success = True
+            elif self.current_round == self.state.max_rounds - 1:  # zero-based
+                raise RuleViolationError(f"max rounds ({self.state.max_rounds}) reached")
 
     def _on_game_error(self, error: GameError):
         # note: we could also introduce more concrete subclasses e.g. InvalidClueError and handle them here individually
-        self.clue_error = error.reason
-        self.log_to_self(self.clue_error, "failed game")
-        self.failure = True
+        self.log_to_self(error.reason, "failed game")
+        self.state.clue_error = error.reason
+        self.state.failure = True
 
     def compute_turn_score(self):
-        return 1 if self.success else 0
+        return 1 if self.state.success else 0
 
     def compute_episode_score(self):
-        if self.success:
+        if self.state.success:
             return 100 / (self.current_round + 1)  # zero-based
         return 0
 
     def _on_after_game(self):
-        self.log_key(METRIC_ABORTED, int(self.aborted))
-        self.log_key(METRIC_LOSE, int(self.failure))
-        self.log_key(METRIC_SUCCESS, int(self.success))
+        self.log_key(METRIC_ABORTED, int(self.state.aborted))
+        self.log_key(METRIC_LOSE, int(self.state.failure))
+        self.log_key(METRIC_SUCCESS, int(self.state.success))
 
 
 class TabooScorer(GameScorer):
