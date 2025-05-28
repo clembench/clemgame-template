@@ -46,10 +46,10 @@ def parse_model(model, width, height):
                 grid[y][x] = value
                 if x == 0 or y == 0 or x == width - 1 or y == height - 1:
                     grid[y][x] = frame_dict[grid[y][x][0]]
-        parsed_grid = []
-        for row in grid:
-            parsed_grid.append("".join(row))
-        return parsed_grid
+        # parsed_grid = []
+        # for row in grid:
+        #     parsed_grid.append("".join(row))
+        return "\n".join("".join(row) for row in grid)
 
 def generate_grid(encoding: str='grid_encoding.lp', models: int=1000, grid_size: tuple[int, int]=(8, 12), neighbors: tuple[int,int]=None, single: int=None,
                   corners: int=None, branches: int=None, corner_branches_per_row: int=None,

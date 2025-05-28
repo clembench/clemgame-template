@@ -2,13 +2,16 @@ import os.path
 from typing import Dict, Tuple, List, Union
 import logging
 import numpy as np
+from string import Template
+import re
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
     GameError, ParseError, RuleViolationError
-from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
-    METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
+# from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
+#     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
+from resources.grids.game_grid import GameGrid
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +19,12 @@ logger = logging.getLogger(__name__)
 class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
-        self._custom_responses = ["move(C,1,1)", "move(L,5,5)", "move(P,7,3)"]
+        self._custom_responses = ["move(C,1,1)", "move(L,5,5)", "move(P,7,3)", "say(Let's move C to the top left corner.)"]
+        self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
-        word = self._custom_responses.pop(0)
-        return f'{word}'
-
+        response = self._custom_responses[np.random.randint(0, len(self._custom_responses))]
+        return response
 
 class CleanUpMaster(DialogueGameMaster):
     """
@@ -29,22 +32,42 @@ class CleanUpMaster(DialogueGameMaster):
     """
     def __init__(self, game_name: str, game_path: str, experiment: Dict, player_models: List[Model]):
         super().__init__(game_name, game_path, experiment, player_models)
+        self.terminate = False
 
     def _on_setup(self, **game_instance):
         self.game_instance = game_instance
 
         self.player_1 = Cleaner(self.player_models[0])
+        self.player_1.grid = GameGrid(self.game_instance['grid1'])
+        self.player_1.grid.set_objects(self.game_instance['objects1'])
         self.player_2 = Cleaner(self.player_models[1])
+        self.player_2.grid = GameGrid(self.game_instance['grid2'])
+        self.player_2.grid.set_objects(self.game_instance['objects2'])
 
-        self.add_player(self.player_1, initial_context=game_instance['initial_prompt'])
+        initial_prompt_p1 = Template(self.game_instance['initial_prompt']).substitute(
+            grid=str(self.player_1.grid), 
+            objects=self.player_1.grid.object_string(), 
+            max_x=self.game_instance['width']-1, 
+            max_y=self.game_instance['height']-1, 
+            empty_symbol=self.game_instance['empty_symbol'],
+            start_message=self.game_instance['p1_start']
+            )
+        logger.info(f'Initial prompt for player 1: {initial_prompt_p1}')
+        self.add_player(self.player_1, initial_context=initial_prompt_p1)
 
         self.success = False
 
     def _parse_response(self, player: Player, response: str) -> str:
-        if response:
+        match = re.compile(self.game_instance['move_pattern']).match(response)
+        if match:
             return response
         else:
-            raise ParseError
+            match = re.compile(self.game_instance['message_pattern']).match(response)
+            if match:
+                return response
+            else:
+                self.terminate = True
+                return False
 
     def _on_parse_error(self, error: GameError):
         self.success = False
@@ -54,11 +77,24 @@ class CleanUpMaster(DialogueGameMaster):
             raise RuleViolationError
         self.success = True
         self.log_to_self('player_response', parsed_response)
+        match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
+        if match:
+            obj = match.group('obj')
+            x = int(match.group('x'))
+            y = int(match.group('y'))
+            success, message = player.grid.move_abs(obj, x, y, check_empty=True)
+            logger.info(f"Player {player.name} moved {obj} to ({x}, {y}): {success}, message: {message}")
+            if not success:
+                self.terminate = True
+                raise RuleViolationError(f"Invalid move: {message}")
+            
 
     def _does_game_proceed(self):
         """
         Proceed anyways. This should check for anything that ends an episode.
         """
+        if self.terminate:
+            return False
         return True
 
     def compute_turn_score(self):
@@ -100,7 +136,7 @@ class SomeGameBenchmark(GameBenchmark):
         super().__init__(game_spec)
 
     def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return SomeGameMaster(self.game_name, self.game_path, experiment, player_models)
+        return CleanUpMaster(self.game_name, self.game_path, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return SomeGameScorer(self.game_name, experiment, game_instance)

@@ -11,7 +11,7 @@ with open("resources/grids/move_messages.json", "r") as f:
         move_messages[key] = Template(messages[key])
 
 class GameGrid:
-    def __init__(self, grid: list[str]=None, object_string: str=None):
+    def __init__(self, grid: str=None, object_string: str=None):
         """
         Initializes the GameGrid class
         """
@@ -21,11 +21,19 @@ class GameGrid:
         self.objects = {}
         if object_string:
             self.place_objects(list(object_string))
+
+    def get_dimensions(self) -> tuple[int, int]:
+        """
+        Returns the dimensions of the grid.
+        :return: A tuple (width, height)
+        """
+        return self.width, self.height
             
-    def parse_grid(self, grid: list[str]) -> list[list[str]]:
+    def parse_grid(self, grid: str) -> list[list[str]]:
         """
-        Parses the grid from a list of strings into a 2D list.
+        Parses the grid from a string into a 2D list.
         """
+        grid = grid.strip().split("\n")
         parsed_grid = []
         for row in grid:
             parsed_row = []
@@ -92,6 +100,18 @@ class GameGrid:
         """
         return {obj: self.objects[obj] for obj in self.objects if self.objects[obj] is not None}
     
+    def object_set(self):
+        """
+        Returns a set of all objects in the grid.
+        """
+        return set(self.objects.keys())
+    
+    def object_string(self):
+        """
+        Returns a string representation of all objects in the grid.
+        """
+        return "'" + "', '".join(self.objects.keys()) + "'"
+
     def set_objects(self, objects: dict[str, tuple[int, int]]):
         """
         Sets the positions of objects on the grid.
@@ -150,12 +170,6 @@ class GameGrid:
         if obj in self.objects:
             return self.objects[obj]
         raise ValueError(f"Object '{obj}' not found in the grid")
-    
-    def object_set(self):
-        """
-        Returns a set of all objects in the grid.
-        """
-        return set(self.objects.keys())
         
     def compare(self, other):
         """
@@ -174,3 +188,4 @@ class GameGrid:
                 distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
                 total_distance += distance
         return total_distance
+    
