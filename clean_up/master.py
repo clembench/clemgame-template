@@ -50,6 +50,7 @@ class CleanUpMaster(DialogueGameMaster):
             max_x=self.game_instance['width']-1, 
             max_y=self.game_instance['height']-1, 
             empty_symbol=self.game_instance['empty_symbol'],
+            max_penalties=self.game_instance['max_penalties'],
             start_message=self.game_instance['p1_start']
             )
         # logger.info(f'Initial prompt for player 1: {initial_prompt_p1}')
@@ -58,6 +59,8 @@ class CleanUpMaster(DialogueGameMaster):
 
         self.finished = False
         self.success = False
+        self.penalties = 0
+        self.pass_turn = True
 
     def _other_player(self) -> Player:
         """
@@ -90,7 +93,16 @@ class CleanUpMaster(DialogueGameMaster):
     def _on_parse_error(self, error: GameError):
         self.success = False
 
+    def _should_pass_turn(self) -> bool:
+        """
+        Check if the player should pass their turn.
+        """
+        return self.pass_turn         
+
     def _advance_game(self, player: Player, parsed_response: str):
+        logger.info(f"Messages for {player.name}:\n")
+        for message in player.messages:
+            logger.info(f"  {message}")
         if not parsed_response:
             raise RuleViolationError
         # self.success = True
@@ -101,15 +113,28 @@ class CleanUpMaster(DialogueGameMaster):
             x = int(match.group('x'))
             y = int(match.group('y'))
             success, message = player.grid.move_abs(obj, x, y, check_empty=True)
+            self.pass_turn = success
             self.set_context_for(player, message)
+            if success:
+                self.log_to_self('valid move', message)
+                # self.set_context_for(player, message)
+                # player.add_next_message(message)
+                self.log_event(from_="GM", to=player.name, action={'type': "send message", 'content': message })
+                player._messages.append(dict(role='user', content=message))
+                logger.info("Valid move by player %s: %s", player.name, message)
+                self.set_context_for(self._other_player(), self.game_instance["new_turn_move"])
             if not success:
-                # TODO: implement lenient mode
-                self.terminate = True
-                raise RuleViolationError(f"Invalid move: {message}")
+                # self.terminate = True
+                self.penalties += 1
+                message = message + "\n" + Template(self.game_instance['penalty']).substitute(penalty=self.penalties, max_penalties=self.game_instance['max_penalties'])
+                self.log_to_self('invalid move', message)
+                self.set_context_for(player, message)
+                # raise RuleViolationError(f"Invalid move: {message}")
             self.set_context_for(self._other_player(), self.game_instance["new_turn_move"])
         else:
             match = re.compile(self.game_instance['message_pattern']).match(parsed_response)
             if match:
+                self.pass_turn = True
                 message = match.group('message')
                 # logger.info(f"Player {player.name} said: {message}")
                 if self.current_round == 0 and player == self.player_1:
@@ -119,6 +144,7 @@ class CleanUpMaster(DialogueGameMaster):
                         max_x=self.game_instance['width']-1, 
                         max_y=self.game_instance['height']-1, 
                         empty_symbol=self.game_instance['empty_symbol'],
+                        max_penalties=self.game_instance['max_penalties'],
                         start_message=Template(self.game_instance['p2_start']).substitute(start_message=message)
                     )
                     # logger.info(f'Initial prompt for player 2: {initial_prompt_p2}')

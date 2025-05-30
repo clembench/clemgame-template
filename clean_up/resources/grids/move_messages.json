@@ -2,7 +2,7 @@
     "en": {
         "successful": "Moved $object to ($x,$y) successfully. Your updated grid looks like this:\n$grid",
         "out_of_bounds": "Invalid move: ($x,$y) is out of bounds. Please try again!",
-        "not_empty": "Invalid move: ($x,$y) is not empty, but contains '$object'. Please try again!",
+        "not_empty": "Penalty: ($x,$y) is not empty, but contains '$object'.",
         "obj_not_found": "Invalid move: $object not found on the grid. Please try again!"
     }
 }

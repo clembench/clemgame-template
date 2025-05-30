@@ -19,7 +19,7 @@ from resources.grids.game_grid import GameGrid, EMPTY_SYMB
 
 logger = logging.getLogger(__name__)
 
-N_INSTANCES = 2
+N_INSTANCES = 3
 LANGUAGE = 'en'
 
 # Seed for reproducibility
@@ -45,16 +45,17 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
             game_instance['objects1'] = grid1.objects
             game_instance['grid2'] = grid2.__str__(empty=True)
             game_instance['objects2'] = grid2.objects
-            game_instance['initial_prompt'] = self.load_template('resources/initial_prompts/initial_prompt_strict')
+            game_instance['initial_prompt'] = self.load_template('resources/initial_prompts/initial_prompt_lenient')
             game_instance['p1_start'] = self.load_template('resources/initial_prompts/p1_start')
             game_instance['p2_start'] = self.load_template('resources/initial_prompts/p2_start')
-            game_instance['new_turn'] = self.load_template('resources/new_turn_prompts/new_turn')
-            game_instance['new_turn_move'] = self.load_template('resources/new_turn_prompts/new_turn_move')
+            game_instance['new_turn'] = self.load_template('resources/intermittent_prompts/new_turn')
+            game_instance['new_turn_move'] = self.load_template('resources/intermittent_prompts/new_turn_move')
+            game_instance['penalty'] = self.load_template('resources/intermittent_prompts/penalty')
             game_instance['move_pattern'] = r'move\((?P<obj>[A-Z]),(?P<x>\d+),(?P<y>\d+)\)'
             game_instance['message_pattern'] = r'say\((?P<message>.+)\)'
             game_instance['terminate_question'] ='say(finished?)'
             game_instance['terminate_answer'] = 'say(finished!)'
-
+            game_instance['max_penalties'] = 10
 
 if __name__ == '__main__':
     CleanUpInstanceGenerator().generate()
