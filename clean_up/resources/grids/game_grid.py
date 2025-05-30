@@ -7,11 +7,13 @@ EMPTY_SYMB = "◌"
 move_messages = {}
 with open("resources/grids/move_messages.json", "r") as f:
     messages = json.load(f)
-    for key in messages:
-        move_messages[key] = Template(messages[key])
+    for language in messages:
+        move_messages[language] = {}
+        for key in messages[language]:
+            move_messages[language][key] = Template(messages[language][key])
 
 class GameGrid:
-    def __init__(self, grid: str=None, object_string: str=None):
+    def __init__(self, grid: str=None, language: str='en', object_string: str=None):
         """
         Initializes the GameGrid class
         """
@@ -21,6 +23,7 @@ class GameGrid:
         self.objects = {}
         if object_string:
             self.place_objects(list(object_string))
+        self.language = language
 
     def get_dimensions(self) -> tuple[int, int]:
         """
@@ -136,15 +139,15 @@ class GameGrid:
         if obj in self.objects:
             old_x, old_y = self.objects[obj]
             if check_empty and self.grid[y][x][-1] != EMPTY_SYMB:
-                return False, move_messages["not_empty"].substitute(object=self.grid[y][x][-1], x=x, y=y)
+                return False, move_messages[self.language]["not_empty"].substitute(object=self.grid[y][x][-1], x=x, y=y)
             if not (0 <= x < self.width and 0 <= y < self.height):
-                return False, move_messages["out_of_bounds"].substitute(x=x, y=y)
+                return False, move_messages[self.language]["out_of_bounds"].substitute(x=x, y=y)
             self.grid[old_y][old_x] = self.grid[old_y][old_x][:-1]  # Remove the object from the old position
             self.grid[y][x].append(obj)  # Place the object at the new position
             self.objects[obj] = (x, y)
-            return True, move_messages["successful"].substitute(object=obj, x=x, y=y, grid=str(self))
+            return True, move_messages[self.language]["successful"].substitute(object=obj, x=x, y=y, grid=str(self))
         else:
-            return False, move_messages["obj_not_found"].substitute(object=obj)
+            return False, move_messages[self.language]["obj_not_found"].substitute(object=obj)
         
     def move_rel(self, obj, dx, dy, check_empty=True):
         """

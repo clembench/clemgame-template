@@ -19,7 +19,7 @@ from resources.grids.game_grid import GameGrid, EMPTY_SYMB
 
 logger = logging.getLogger(__name__)
 
-N_INSTANCES = 5
+N_INSTANCES = 2
 LANGUAGE = 'en'
 
 # Seed for reproducibility
@@ -37,6 +37,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
             grid2.place_objects('CLP')
             width, height = grid1.get_dimensions()
             game_instance = self.add_game_instance(experiment, instance_id)
+            game_instance['language'] = LANGUAGE
             game_instance['width'] = width
             game_instance['height'] = height
             game_instance['empty_symbol'] = EMPTY_SYMB
@@ -44,13 +45,15 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
             game_instance['objects1'] = grid1.objects
             game_instance['grid2'] = grid2.__str__(empty=True)
             game_instance['objects2'] = grid2.objects
-            game_instance['initial_prompt'] = self.load_template('resources/initial_prompts/initial_prompt')
+            game_instance['initial_prompt'] = self.load_template('resources/initial_prompts/initial_prompt_strict')
             game_instance['p1_start'] = self.load_template('resources/initial_prompts/p1_start')
             game_instance['p2_start'] = self.load_template('resources/initial_prompts/p2_start')
             game_instance['new_turn'] = self.load_template('resources/new_turn_prompts/new_turn')
             game_instance['new_turn_move'] = self.load_template('resources/new_turn_prompts/new_turn_move')
             game_instance['move_pattern'] = r'move\((?P<obj>[A-Z]),(?P<x>\d+),(?P<y>\d+)\)'
             game_instance['message_pattern'] = r'say\((?P<message>.+)\)'
+            game_instance['terminate_question'] ='say(finished?)'
+            game_instance['terminate_answer'] = 'say(finished!)'
 
 
 if __name__ == '__main__':

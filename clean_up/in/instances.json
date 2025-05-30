@@ -5,6 +5,7 @@
             "game_instances": [
                 {
                     "game_id": 0,
+                    "language": "en",
                     "width": 12,
                     "height": 8,
                     "empty_symbol": "◌",
@@ -38,185 +39,15 @@
                             2
                         ]
                     },
-                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be notified that your move is invalid and you can try again.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you both get a penalty and your message will not be passed on. You get a chance to reformulate.\n* Your messages must only contain valid commands and nothing else, or you both get a penalty.\n* If both players accumulate 4 penalties, the game ends and you don't get points.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Penalties will lead to the deduction of points. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
+                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells within the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you immediately lose the game.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you lose the game immediately.\n* Your messages must only contain valid commands and nothing else, or you lose immediately.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
                     "p1_start": "Are you ready to go? If yes, please give your first command!",
                     "p2_start": "The other player started the game by sending this message:\n$start_message\nWhat is your first command?",
                     "new_turn": "The other player sent this message:\n$turn_message\nWhat is your next command?",
                     "new_turn_move": "The other player moved an object on their grid. What is your next command?",
                     "move_pattern": "move\\((?P<obj>[A-Z]),(?P<x>\\d+),(?P<y>\\d+)\\)",
-                    "message_pattern": "say\\((?P<message>.+)\\)"
-                },
-                {
-                    "game_id": 1,
-                    "width": 12,
-                    "height": 8,
-                    "empty_symbol": "◌",
-                    "grid1": "╔═══════╤══╗\n║◌◌◌◌◌◌◌│◌◌║\n║◌◌◌◌◌◌◌│◌◌║\n║◌┌─┐◌◌◌└──╢\n║◌│◌│◌◌◌◌◌◌║\n║◌└─┘◌◌◌◌◌◌║\n║◌◌◌◌◌◌◌◌◌◌║\n╚══════════╝",
-                    "objects1": {
-                        "C": [
-                            1,
-                            3
-                        ],
-                        "L": [
-                            6,
-                            6
-                        ],
-                        "P": [
-                            1,
-                            4
-                        ]
-                    },
-                    "grid2": "╔═══════╤══╗\n║◌◌◌◌◌◌◌│◌◌║\n║◌◌◌◌◌◌◌│◌◌║\n║◌┌─┐◌◌◌└──╢\n║◌│◌│◌◌◌◌◌◌║\n║◌└─┘◌◌◌◌◌◌║\n║◌◌◌◌◌◌◌◌◌◌║\n╚══════════╝",
-                    "objects2": {
-                        "C": [
-                            8,
-                            5
-                        ],
-                        "L": [
-                            1,
-                            6
-                        ],
-                        "P": [
-                            5,
-                            1
-                        ]
-                    },
-                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be notified that your move is invalid and you can try again.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you both get a penalty and your message will not be passed on. You get a chance to reformulate.\n* Your messages must only contain valid commands and nothing else, or you both get a penalty.\n* If both players accumulate 4 penalties, the game ends and you don't get points.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Penalties will lead to the deduction of points. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
-                    "p1_start": "Are you ready to go? If yes, please give your first command!",
-                    "p2_start": "The other player started the game by sending this message:\n$start_message\nWhat is your first command?",
-                    "new_turn": "The other player sent this message:\n$turn_message\nWhat is your next command?",
-                    "new_turn_move": "The other player moved an object on their grid. What is your next command?",
-                    "move_pattern": "move\\((?P<obj>[A-Z]),(?P<x>\\d+),(?P<y>\\d+)\\)",
-                    "message_pattern": "say\\((?P<message>.+)\\)"
-                },
-                {
-                    "game_id": 2,
-                    "width": 12,
-                    "height": 8,
-                    "empty_symbol": "◌",
-                    "grid1": "╔══════╤═══╗\n║◌◌◌◌◌◌│◌◌◌║\n║◌◌◌◌┌─┘◌◌◌║\n║◌◌◌◌│◌◌◌◌◌║\n║◌◌◌◌└───┐◌║\n║◌◌◌◌◌◌◌◌│◌║\n║◌◌◌◌◌◌◌◌│◌║\n╚════════╧═╝",
-                    "objects1": {
-                        "C": [
-                            1,
-                            3
-                        ],
-                        "L": [
-                            6,
-                            5
-                        ],
-                        "P": [
-                            4,
-                            1
-                        ]
-                    },
-                    "grid2": "╔══════╤═══╗\n║◌◌◌◌◌◌│◌◌◌║\n║◌◌◌◌┌─┘◌◌◌║\n║◌◌◌◌│◌◌◌◌◌║\n║◌◌◌◌└───┐◌║\n║◌◌◌◌◌◌◌◌│◌║\n║◌◌◌◌◌◌◌◌│◌║\n╚════════╧═╝",
-                    "objects2": {
-                        "C": [
-                            4,
-                            4
-                        ],
-                        "L": [
-                            2,
-                            4
-                        ],
-                        "P": [
-                            7,
-                            6
-                        ]
-                    },
-                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be notified that your move is invalid and you can try again.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you both get a penalty and your message will not be passed on. You get a chance to reformulate.\n* Your messages must only contain valid commands and nothing else, or you both get a penalty.\n* If both players accumulate 4 penalties, the game ends and you don't get points.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Penalties will lead to the deduction of points. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
-                    "p1_start": "Are you ready to go? If yes, please give your first command!",
-                    "p2_start": "The other player started the game by sending this message:\n$start_message\nWhat is your first command?",
-                    "new_turn": "The other player sent this message:\n$turn_message\nWhat is your next command?",
-                    "new_turn_move": "The other player moved an object on their grid. What is your next command?",
-                    "move_pattern": "move\\((?P<obj>[A-Z]),(?P<x>\\d+),(?P<y>\\d+)\\)",
-                    "message_pattern": "say\\((?P<message>.+)\\)"
-                },
-                {
-                    "game_id": 3,
-                    "width": 12,
-                    "height": 8,
-                    "empty_symbol": "◌",
-                    "grid1": "╔═╤════════╗\n║◌│◌◌◌◌◌◌◌◌║\n║◌│◌◌◌◌◌◌◌◌║\n║◌│◌◌◌◌┌─┐◌║\n║◌│◌◌◌◌│◌│◌║\n║◌└──┐◌└─┘◌║\n║◌◌◌◌│◌◌◌◌◌║\n╚════╧═════╝",
-                    "objects1": {
-                        "C": [
-                            9,
-                            6
-                        ],
-                        "L": [
-                            1,
-                            3
-                        ],
-                        "P": [
-                            7,
-                            1
-                        ]
-                    },
-                    "grid2": "╔═╤════════╗\n║◌│◌◌◌◌◌◌◌◌║\n║◌│◌◌◌◌◌◌◌◌║\n║◌│◌◌◌◌┌─┐◌║\n║◌│◌◌◌◌│◌│◌║\n║◌└──┐◌└─┘◌║\n║◌◌◌◌│◌◌◌◌◌║\n╚════╧═════╝",
-                    "objects2": {
-                        "C": [
-                            5,
-                            1
-                        ],
-                        "L": [
-                            10,
-                            4
-                        ],
-                        "P": [
-                            3,
-                            6
-                        ]
-                    },
-                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be notified that your move is invalid and you can try again.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you both get a penalty and your message will not be passed on. You get a chance to reformulate.\n* Your messages must only contain valid commands and nothing else, or you both get a penalty.\n* If both players accumulate 4 penalties, the game ends and you don't get points.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Penalties will lead to the deduction of points. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
-                    "p1_start": "Are you ready to go? If yes, please give your first command!",
-                    "p2_start": "The other player started the game by sending this message:\n$start_message\nWhat is your first command?",
-                    "new_turn": "The other player sent this message:\n$turn_message\nWhat is your next command?",
-                    "new_turn_move": "The other player moved an object on their grid. What is your next command?",
-                    "move_pattern": "move\\((?P<obj>[A-Z]),(?P<x>\\d+),(?P<y>\\d+)\\)",
-                    "message_pattern": "say\\((?P<message>.+)\\)"
-                },
-                {
-                    "game_id": 4,
-                    "width": 12,
-                    "height": 8,
-                    "empty_symbol": "◌",
-                    "grid1": "╔═╤════════╗\n║◌│◌◌◌◌◌◌◌◌║\n╟─┘◌◌◌◌◌◌◌◌║\n║◌◌◌┌──┐◌◌◌║\n║◌◌◌│◌◌│◌◌◌║\n║◌◌◌└──┘◌◌◌║\n║◌◌◌◌◌◌◌◌◌◌║\n╚══════════╝",
-                    "objects1": {
-                        "C": [
-                            9,
-                            6
-                        ],
-                        "L": [
-                            2,
-                            4
-                        ],
-                        "P": [
-                            5,
-                            2
-                        ]
-                    },
-                    "grid2": "╔═╤════════╗\n║◌│◌◌◌◌◌◌◌◌║\n╟─┘◌◌◌◌◌◌◌◌║\n║◌◌◌┌──┐◌◌◌║\n║◌◌◌│◌◌│◌◌◌║\n║◌◌◌└──┘◌◌◌║\n║◌◌◌◌◌◌◌◌◌◌║\n╚══════════╝",
-                    "objects2": {
-                        "C": [
-                            9,
-                            5
-                        ],
-                        "L": [
-                            10,
-                            1
-                        ],
-                        "P": [
-                            10,
-                            3
-                        ]
-                    },
-                    "initial_prompt": "You are playing a collaborative game with another player. You both have identical grids, and the following objects are randomly placed on each grid: $objects.\nYou cannot see the other player's grid, and they cannot see yours.\n\n**Goal:**\nBoth players need to move their objects on the grid in such a way that in the end both grids look the same.\nRemember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.\n                          \n**Rules:**\n* In each turn, you can send exactly one command. Valid commands are:\n    * Move an object to a new position: `move(<object>,<x>,<y>)`\n    * Send a message to the other player: `say(<message>)`\n* You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.\n* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be notified that your move is invalid and you can try again.\n* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you both get a penalty and your message will not be passed on. You get a chance to reformulate.\n* Your messages must only contain valid commands and nothing else, or you both get a penalty.\n* If both players accumulate 4 penalties, the game ends and you don't get points.\n\n**End of Game:**\nIf you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.\n\n**Scoring:**\nThe closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Penalties will lead to the deduction of points. Can you beat the record?\n                           \n**Grid:**\nThe upper left corner is at (0,0), the lower right corner is at ($max_x,$max_y).\nHere is your grid:\n$grid\n\n**IMPORTANT:**\nEach message can only contain **one** command, and no additional text or formatting!\n                           \n$start_message",
-                    "p1_start": "Are you ready to go? If yes, please give your first command!",
-                    "p2_start": "The other player started the game by sending this message:\n$start_message\nWhat is your first command?",
-                    "new_turn": "The other player sent this message:\n$turn_message\nWhat is your next command?",
-                    "new_turn_move": "The other player moved an object on their grid. What is your next command?",
-                    "move_pattern": "move\\((?P<obj>[A-Z]),(?P<x>\\d+),(?P<y>\\d+)\\)",
-                    "message_pattern": "say\\((?P<message>.+)\\)"
+                    "message_pattern": "say\\((?P<message>.+)\\)",
+                    "terminate_question": "say(finished?)",
+                    "terminate_answer": "say(finished!)"
                 }
             ]
         }

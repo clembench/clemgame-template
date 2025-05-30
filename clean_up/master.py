@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
-        self._custom_responses = ["move(C,1,1)", "move(L,5,5)", "move(P,7,3)", "say(Let's move C to the top left corner.)"]
+        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)"]
         self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
@@ -52,22 +52,40 @@ class CleanUpMaster(DialogueGameMaster):
             empty_symbol=self.game_instance['empty_symbol'],
             start_message=self.game_instance['p1_start']
             )
-        logger.info(f'Initial prompt for player 1: {initial_prompt_p1}')
+        # logger.info(f'Initial prompt for player 1: {initial_prompt_p1}')
         self.add_player(self.player_1, initial_context=initial_prompt_p1)
+        self.add_player(self.player_2)
 
+        self.finished = False
         self.success = False
 
+    def _other_player(self) -> Player:
+        """
+        Returns the player who will be next.
+        """
+        other_player_idx = (self._current_player_idx + 1) % len(self.players_by_names)
+        return self.get_players()[other_player_idx]
+
     def _parse_response(self, player: Player, response: str) -> str:
+        # logger.info(f"Parsing response of player {player.name}, current round: {self.current_round}")
+        # TODO: for now, we will just remove backticks and newlines
+        response = response.replace('`', '').replace('\n', ' ').strip()
         match = re.compile(self.game_instance['move_pattern']).match(response)
         if match:
             return response
         else:
             match = re.compile(self.game_instance['message_pattern']).match(response)
             if match:
+                if response == self.game_instance['terminate_question']:
+                    self.finished = True
+                if response == self.game_instance['terminate_answer'] and self.finished:
+                    self.success = True
+                    self.terminate = True
+                    self.log_to_self('success', 'true')
                 return response
             else:
                 self.terminate = True
-                return False
+                raise ParseError(f"Invalid response format: {response}")
 
     def _on_parse_error(self, error: GameError):
         self.success = False
@@ -75,7 +93,7 @@ class CleanUpMaster(DialogueGameMaster):
     def _advance_game(self, player: Player, parsed_response: str):
         if not parsed_response:
             raise RuleViolationError
-        self.success = True
+        # self.success = True
         self.log_to_self('player_response', parsed_response)
         match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
         if match:
@@ -83,17 +101,42 @@ class CleanUpMaster(DialogueGameMaster):
             x = int(match.group('x'))
             y = int(match.group('y'))
             success, message = player.grid.move_abs(obj, x, y, check_empty=True)
-            logger.info(f"Player {player.name} moved {obj} to ({x}, {y}): {success}, message: {message}")
+            self.set_context_for(player, message)
             if not success:
+                # TODO: implement lenient mode
                 self.terminate = True
                 raise RuleViolationError(f"Invalid move: {message}")
-            
+            self.set_context_for(self._other_player(), self.game_instance["new_turn_move"])
+        else:
+            match = re.compile(self.game_instance['message_pattern']).match(parsed_response)
+            if match:
+                message = match.group('message')
+                # logger.info(f"Player {player.name} said: {message}")
+                if self.current_round == 0 and player == self.player_1:
+                    initial_prompt_p2 = Template(self.game_instance['initial_prompt']).substitute(
+                        grid=str(self.player_2.grid), 
+                        objects=self.player_2.grid.object_string(), 
+                        max_x=self.game_instance['width']-1, 
+                        max_y=self.game_instance['height']-1, 
+                        empty_symbol=self.game_instance['empty_symbol'],
+                        start_message=Template(self.game_instance['p2_start']).substitute(start_message=message)
+                    )
+                    # logger.info(f'Initial prompt for player 2: {initial_prompt_p2}')
+                    self.set_context_for(self.player_2, initial_prompt_p2)
+                else:
+                    # logger.info(f"Setting context for player {self._next_player().name} with new turn message: {Template(self.game_instance['new_turn']).substitute(turn_message=message)}.")
+                    self.set_context_for(self._other_player(), Template(self.game_instance["new_turn"]).substitute(turn_message=message))
+            else:
+                raise ParseError(f"Invalid response format: {parsed_response}")
 
     def _does_game_proceed(self):
         """
         Proceed anyways. This should check for anything that ends an episode.
         """
         if self.terminate:
+            return False
+        if self.current_round >= 20:  # Arbitrary limit for rounds
+            logger.info("Maximum number of rounds reached, ending game.")
             return False
         return True
 
