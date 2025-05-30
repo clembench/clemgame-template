@@ -1,0 +1,77 @@
+Attached is an image of two parts:
+
+- On the right is a legend image of several icons, each icon has an associated ID above it.
+
+- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.
+
+You are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.
+
+**Communication Format**
+Communicate with each other using one of the two command formats, one command per turn:
+
+1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.
+
+2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.
+
+Strictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.
+
+**Communication Guidelines**
+
+1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.
+
+```
+# Wrong example
+# icon D could be different icons for you and the other player
+say(Let's move icon D!)
+
+# Correct example
+# suppose you have an icon that looks like "brain in a lightbulb"
+say(Let's move the icon with a brain in a lightbulb!)
+
+# If the other player agrees, move on to choose and agree on a target location
+```
+
+2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.
+
+```
+# Wrong example
+say(Let's move the "brain in a lightbulb" icon to location (800, 100)!)
+
+# Correct example
+# suppose in the background picture there is a yellow fridge with its top visible
+say(Let's move the "brain in a lightbulb" icon to the top of the yellow fridge!)
+
+# If the other player agrees, 
+# and if the icon "brain in a lightbulb" has ID "A" for you
+# and if "top of the yellow fridge" is at (300, 500)
+# then you send the `move` command 
+move(A, 300, 500)
+```
+
+3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.
+
+```
+# Example
+# Inform the other player
+say(My icon is not in place yet, I will move it one more time.)
+
+# And make a move
+move(ICON_ID, X_COORD, Y_COORD)
+```
+
+**Ending of The Game**
+To indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.
+
+Both players win if the game ends within 50 combined commands.
+
+You will immediately loss the game if you:
+
+- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.
+- Instruct the other player to move an icon using coordinates of target location.
+
+The other player has given the first command:
+```
+$$$$
+```
+
+Now, please say your command.
