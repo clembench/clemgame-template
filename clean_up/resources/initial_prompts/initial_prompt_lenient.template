@@ -22,7 +22,6 @@ If you think you reached the goal, you can ask the other player to finish the ga
 The closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Can you beat the record?
                            
 **Grid:**
-The upper left corner is at (0,0) and contains '╔', the lower right corner is at ($max_x,$max_y) and contains '╝'.
 When moving an object, make sure the target spot is empty! Otherwise, you will be penalized.
 Here is your grid:
 $grid
@@ -31,5 +30,3 @@ $grid
 You will immediately loss the game if you:
 * Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.
 * Instruct the other player to move an icon using coordinates of target location.
-
-$start_message

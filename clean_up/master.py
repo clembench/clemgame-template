@@ -32,35 +32,29 @@ class CleanUpMaster(DialogueGameMaster):
     """
     def __init__(self, game_name: str, game_path: str, experiment: Dict, player_models: List[Model]):
         super().__init__(game_name, game_path, experiment, player_models)
-        self.terminate = False
 
     def _on_setup(self, **game_instance):
         self.game_instance = game_instance
 
         self.player_1 = Cleaner(self.player_models[0])
         self.player_1.grid = GameGrid(self.game_instance['grid1'])
-        self.player_1.grid.set_objects(self.game_instance['objects1'])
+        self.player_1.grid.set_objects(self.game_instance['state1'])
+        self.player_1.grid.show_coords = self.game_instance['show_coords']
         self.player_2 = Cleaner(self.player_models[1])
         self.player_2.grid = GameGrid(self.game_instance['grid2'])
-        self.player_2.grid.set_objects(self.game_instance['objects2'])
+        self.player_2.grid.set_objects(self.game_instance['state2'])
+        self.player_2.grid.show_coords = self.game_instance['show_coords']
 
-        initial_prompt_p1 = Template(self.game_instance['initial_prompt']).substitute(
-            grid=str(self.player_1.grid), 
-            objects=self.player_1.grid.object_string(), 
-            max_x=self.game_instance['width']-1, 
-            max_y=self.game_instance['height']-1, 
-            empty_symbol=self.game_instance['empty_symbol'],
-            max_penalties=self.game_instance['max_penalties'],
-            start_message=self.game_instance['p1_start']
-            )
-        # logger.info(f'Initial prompt for player 1: {initial_prompt_p1}')
-        self.add_player(self.player_1, initial_context=initial_prompt_p1)
+        self.add_player(self.player_1, initial_context=self.game_instance['p1_initial_prompt'])
         self.add_player(self.player_2)
 
-        self.finished = False
-        self.success = False
-        self.penalties = 0
+        self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
+        self.success = False    # True if game finished regularly
+        self.terminate = False  # True if game is terminated because of rule violation or parse error
+        self.penalties = 0      # Number of collectively accumulated penalties
+        self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
+        self.max_rounds = self.game_instance['max_rounds']  # Arbitrary limit for rounds
 
     def _other_player(self) -> Player:
         """
@@ -88,6 +82,7 @@ class CleanUpMaster(DialogueGameMaster):
                 return response
             else:
                 self.terminate = True
+                self.log_to_self('parse_error', f"Invalid response format")
                 raise ParseError(f"Invalid response format: {response}")
 
     def _on_parse_error(self, error: GameError):
@@ -100,9 +95,9 @@ class CleanUpMaster(DialogueGameMaster):
         return self.pass_turn         
 
     def _advance_game(self, player: Player, parsed_response: str):
-        logger.info(f"Messages for {player.name}:\n")
-        for message in player.messages:
-            logger.info(f"  {message}")
+        # logger.info(f"Messages for {player.name}:\n")
+        # for message in player.messages:
+        #     logger.info(f"  {message}")
         if not parsed_response:
             raise RuleViolationError
         # self.success = True
@@ -116,21 +111,21 @@ class CleanUpMaster(DialogueGameMaster):
             self.pass_turn = success
             self.set_context_for(player, message)
             if success:
+                # log the move message to the player and add it to the message history (without response)
                 self.log_to_self('valid move', message)
-                # self.set_context_for(player, message)
-                # player.add_next_message(message)
                 self.log_event(from_="GM", to=player.name, action={'type': "send message", 'content': message })
                 player._messages.append(dict(role='user', content=message))
-                logger.info("Valid move by player %s: %s", player.name, message)
-                self.set_context_for(self._other_player(), self.game_instance["new_turn_move"])
+                # turn is passed to the other player
+                next_player_prompt = self._penalty_counter_message()
+                next_player_prompt += self.game_instance["new_turn_move"]
+                self.set_context_for(self._other_player(), next_player_prompt)
             if not success:
-                # self.terminate = True
+                # Player is reprompted with a penalty, their turn continues. 
                 self.penalties += 1
-                message = message + "\n" + Template(self.game_instance['penalty']).substitute(penalty=self.penalties, max_penalties=self.game_instance['max_penalties'])
+                message = message + "\n" + Template(self.game_instance['move_penalty']).substitute(penalty=self.penalties, max_penalties=self.max_penalties)
                 self.log_to_self('invalid move', message)
                 self.set_context_for(player, message)
                 # raise RuleViolationError(f"Invalid move: {message}")
-            self.set_context_for(self._other_player(), self.game_instance["new_turn_move"])
         else:
             match = re.compile(self.game_instance['message_pattern']).match(parsed_response)
             if match:
@@ -138,31 +133,41 @@ class CleanUpMaster(DialogueGameMaster):
                 message = match.group('message')
                 # logger.info(f"Player {player.name} said: {message}")
                 if self.current_round == 0 and player == self.player_1:
-                    initial_prompt_p2 = Template(self.game_instance['initial_prompt']).substitute(
-                        grid=str(self.player_2.grid), 
-                        objects=self.player_2.grid.object_string(), 
-                        max_x=self.game_instance['width']-1, 
-                        max_y=self.game_instance['height']-1, 
-                        empty_symbol=self.game_instance['empty_symbol'],
-                        max_penalties=self.game_instance['max_penalties'],
-                        start_message=Template(self.game_instance['p2_start']).substitute(start_message=message)
+                    initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
+                        start_message=message
                     )
                     # logger.info(f'Initial prompt for player 2: {initial_prompt_p2}')
                     self.set_context_for(self.player_2, initial_prompt_p2)
                 else:
                     # logger.info(f"Setting context for player {self._next_player().name} with new turn message: {Template(self.game_instance['new_turn']).substitute(turn_message=message)}.")
-                    self.set_context_for(self._other_player(), Template(self.game_instance["new_turn"]).substitute(turn_message=message))
+                    next_player_prompt = self._penalty_counter_message()
+                    next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)
+                    self.set_context_for(self._other_player(), next_player_prompt)
             else:
                 raise ParseError(f"Invalid response format: {parsed_response}")
+            
+    def _penalty_counter_message(self) -> str:
+        """
+        Returns a message with the current penalty count.
+        """
+        if self.max_penalties > 0:
+            return Template(self.game_instance['penalty_counter']).substitute(
+                penalty=self.penalties, max_penalties=self.max_penalties
+            )
+        return ""
 
     def _does_game_proceed(self):
         """
         Proceed anyways. This should check for anything that ends an episode.
         """
+        if self.penalties > self.max_penalties:
+            self.log_to_self('end', 'Maximum number of penalties exceeded')
+            return False
         if self.terminate:
             return False
-        if self.current_round >= 20:  # Arbitrary limit for rounds
+        if self.current_round >= self.max_rounds:  # Arbitrary limit for rounds
             logger.info("Maximum number of rounds reached, ending game.")
+            self.log_to_self('end', 'Maximum number of rounds reached')
             return False
         return True
 

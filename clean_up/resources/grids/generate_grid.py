@@ -87,7 +87,7 @@ def generate_grid(encoding: str='grid_encoding.lp', models: int=1000, grid_size:
     if corners:
         grid_lp += f'\n:- {corners} < #count {{ X,Y,F : cell(X,Y,F), corner(F) }}.'
     if branches:
-        grid_lp += f'\n:- {branches} < #count {{ X,Y,F : cell(X,Y,F), branch(F) }}.'
+        grid_lp += f'\n:- {branches} != #count {{ X,Y,F : cell(X,Y,F), branch(F) }}.'
     # limit number of corners+branches in each row and column, e.g. 8 and 4
     if corner_branches_per_row:
         grid_lp += f'\n:- Y=0..H, grid_size(_,H), CC = #count {{ X,F : cell(X,Y,F), corner(F) }}, BC = #count {{ X,F : cell(X,Y,F), branch(F) }}, not CC+BC < {corner_branches_per_row}.'

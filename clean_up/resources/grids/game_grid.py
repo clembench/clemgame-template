@@ -24,6 +24,7 @@ class GameGrid:
         if object_string:
             self.place_objects(list(object_string))
         self.language = language
+        self.show_coords = False  # Default value, can be set later
 
     def get_dimensions(self) -> tuple[int, int]:
         """
@@ -69,24 +70,36 @@ class GameGrid:
         model2 = all_grids[str(index)]
         return cls(model1), cls(model2)
     
-    def __str__(self, empty = False):
+    def __str__(self, empty = False, show_coords: bool = None):
         """
         Returns a string representation of the grid.
+        :param empty: If True, returns the empty grid without objects
+        :param coords: If True, includes coordinates in the string representation
+        :return: A string representation of the grid
         """
+        if not show_coords:
+            coords = self.show_coords
         i = -1
         if empty:
             i = 0
         grid_str = ""
-        for row in self.grid:
+        if coords:
+            grid_str += "    " + "".join([str(i % 10) for i in range(1,self.width-1)]) + "\n"
+        for j, row in enumerate(self.grid):
+            if coords:
+                if j == 0 or j == len(self.grid) - 1:
+                    grid_str += "   "
+                else:
+                    grid_str += f"{j} ".rjust(3)
             grid_str += "".join([cell[i] for cell in row]) + "\n"
-        return grid_str.strip()
+        return grid_str
     
     def place_objects(self, objects: list[str] | str):
         """
         Places objects on the grid.
         :param objects: List of objects to place on the grid
         """
-        for obj in objects:
+        for obj in objects: 
             x = random.randint(0, self.width - 1)
             y = random.randint(0, self.height - 1)
             while self.grid[y][x][-1] != EMPTY_SYMB:
@@ -114,13 +127,23 @@ class GameGrid:
         Returns a string representation of all objects in the grid.
         """
         return "'" + "', '".join(self.objects.keys()) + "'"
+    
+    def object_list(self):
+        """
+        Returns a list of all objects in the format used by instancegenerator: [{'id': 'A', 'coord': [x, y]}, ...]
+        """
+        return [{'id': obj, 'coord': [pos[0], pos[1]]} for obj, pos in self.objects.items() if pos is not None]
 
-    def set_objects(self, objects: dict[str, tuple[int, int]]):
+    def set_objects(self, objects: list[dict]):
         """
-        Sets the positions of objects on the grid.
-        :param objects: A dictionary where keys are object names and values are tuples (x, y)
+        Sets the positions of objects on the grid, as loaded from an instance json file.
+        :param objects: A list of dictionaries of type {'id': 'A', 'coord': [x, y]}
         """
-        for obj, (x, y) in objects.items():
+        for object in objects:
+            obj = object['id']
+            x, y = object['coord']
+            x = int(x)
+            y = int(y)
             if 0 <= x < self.width and 0 <= y < self.height:
                 if self.grid[y][x][-1] != EMPTY_SYMB:
                     raise ValueError(f"Position ({x}, {y}) is not empty for object '{obj}'")
@@ -133,9 +156,20 @@ class GameGrid:
         """
         Moves an object to a specific position on the grid.
         :param obj: The object to move
-        :param x: The x-coordinate to move to
-        :param y: The y-coordinate to move to
+        :param x: The x-coordinate to move to (0-9+)
+        :param y: The y-coordinate to move to (0-9+)
         """
+        if isinstance(x, str):
+            try:
+                x = int(x) + 1
+            except ValueError:
+                raise ValueError(f"Invalid x-coordinate: {x}. It should be an integer.")
+        if isinstance(y, str):
+            try:
+                y = int(y) + 1
+            except ValueError:
+                raise ValueError(f"Invalid x-coordinate: {y}. It should be an integer.")
+        # TODO: check if this works!
         if obj in self.objects:
             old_x, old_y = self.objects[obj]
             if check_empty and self.grid[y][x][-1] != EMPTY_SYMB:
@@ -191,4 +225,8 @@ class GameGrid:
                 distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
                 total_distance += distance
         return total_distance
-    
+
+
+if __name__ == "__main__":
+    grd = GameGrid.from_json('resources/grids/gs11x11_b7.json')
+    print(grd.__str__(coords=True))
