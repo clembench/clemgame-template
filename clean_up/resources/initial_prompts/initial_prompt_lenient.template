@@ -6,17 +6,18 @@ Both players need to move their objects on the grid in such a way that in the en
 Remember that you can only see your own grid! You have to communicate with the other player to agree upon a common goal state.
 
 **Rules:**
+
 * In each turn, you can send exactly one command. Valid commands are:
     * Send a message to the other player: `say(<message>)`
     * Move an object to a new position: `move(<object>,<x>,<y>)`
 * You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol `$empty_symbol`.
+* You must not use the words 'row', 'column', coordinates, or numbers of any form when communicating with the other player. If you do, you lose the game immediately. Instead, use the shapes you see in the grid as reference.
 * If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be penalized and can try again.
-* You must not use coordinates or numbers of any form when communicating with the other player. If you do, you lose the game immediately.
 * Your messages must only contain valid commands and nothing else, or you both get a penalty.
 * If both players accumulate $max_penalties penalties, the game ends.
 
 **End of Game:**
-If you think you reached the goal, you can ask the other player to finish the game by sending `say (finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.
+If you think you reached the goal, you can ask the other player to finish the game by sending `say(finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.
 
 **Scoring:**
 The closer the identical objects are in both grids, the more points you get. Also, the fewer messages you send, the more points you get. Can you beat the record?
@@ -24,9 +25,13 @@ The closer the identical objects are in both grids, the more points you get. Als
 **Grid:**
 When moving an object, make sure the target spot is empty! Otherwise, you will be penalized.
 Here is your grid:
-$grid
+```
+$grid```
+
 
 **IMPORTANT:**
 You will immediately loss the game if you:
+
 * Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.
-* Instruct the other player to move an icon using coordinates of target location.
+* Use the words 'row' or 'column', or any numbers or coordinates in a message to the other player.
+
