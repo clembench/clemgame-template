@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
-        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)"]
+        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)", "say(Move C to (1, 1).)",]
         self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
@@ -37,11 +37,11 @@ class CleanUpMaster(DialogueGameMaster):
         self.game_instance = game_instance
 
         self.player_1 = Cleaner(self.player_models[0])
-        self.player_1.grid = GameGrid(self.game_instance['grid1'])
+        self.player_1.grid = GameGrid(self.game_instance['background'])
         self.player_1.grid.set_objects(self.game_instance['state1'])
         self.player_1.grid.show_coords = self.game_instance['show_coords']
         self.player_2 = Cleaner(self.player_models[1])
-        self.player_2.grid = GameGrid(self.game_instance['grid2'])
+        self.player_2.grid = GameGrid(self.game_instance['background'])
         self.player_2.grid.set_objects(self.game_instance['state2'])
         self.player_2.grid.show_coords = self.game_instance['show_coords']
 
@@ -54,7 +54,7 @@ class CleanUpMaster(DialogueGameMaster):
         self.penalties = 0      # Number of collectively accumulated penalties
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
-        self.max_rounds = self.game_instance['max_rounds']  # Arbitrary limit for rounds
+        self.max_rounds = self.game_instance['max_rounds']
 
     def _other_player(self) -> Player:
         """
@@ -64,6 +64,7 @@ class CleanUpMaster(DialogueGameMaster):
         return self.get_players()[other_player_idx]
 
     def _parse_response(self, player: Player, response: str) -> str:
+        self.log_to_self('player_response', response)
         # logger.info(f"Parsing response of player {player.name}, current round: {self.current_round}")
         # TODO: for now, we will just remove backticks and newlines
         response = response.replace('`', '').replace('\n', ' ').strip()
@@ -75,18 +76,25 @@ class CleanUpMaster(DialogueGameMaster):
             if match:
                 if response == self.game_instance['terminate_question']:
                     self.finished = True
-                if response == self.game_instance['terminate_answer'] and self.finished:
+                elif response == self.game_instance['terminate_answer'] and self.finished:
                     self.success = True
                     self.terminate = True
                     self.log_to_self('success', 'true')
+                else:
+                    for restricted in self.game_instance['restricted']:
+                        match = re.compile(restricted).search(response)
+                        if match:
+                            self.terminate = True
+                            self.log_to_self('rule_violation', f"Response violates restrictions: {response}")
+                            logger.warning(f"Response contains restricted content: {response}")
                 return response
             else:
                 self.terminate = True
                 self.log_to_self('parse_error', f"Invalid response format")
                 raise ParseError(f"Invalid response format: {response}")
 
-    def _on_parse_error(self, error: GameError):
-        self.success = False
+    # def _on_parse_error(self, error: GameError):
+    #     self.success = False
 
     def _should_pass_turn(self) -> bool:
         """
@@ -101,7 +109,6 @@ class CleanUpMaster(DialogueGameMaster):
         if not parsed_response:
             raise RuleViolationError
         # self.success = True
-        self.log_to_self('player_response', parsed_response)
         match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
         if match:
             obj = match.group('obj')
@@ -184,6 +191,9 @@ class CleanUpMaster(DialogueGameMaster):
             self.log_key('success', 'true')
         else:
             self.log_key('success', 'false')
+        all_distances, total_distance = self.player_1.grid.compare(self.player_2.grid)
+        self.log_to_self('total_distance', str(total_distance))
+        self.log_to_self('all_distances', str(all_distances))
 
 
 class SomeGameScorer(GameScorer):

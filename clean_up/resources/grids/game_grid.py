@@ -218,13 +218,15 @@ class GameGrid:
             raise ValueError("Grids must have the same objects for comparison")
         
         total_distance = 0
+        all_distances = {}
         for obj in self.objects:
             if obj in other.objects:
                 x1, y1 = self.get_position(obj)
                 x2, y2 = other.get_position(obj)
                 distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+                all_distances[obj] = distance
                 total_distance += distance
-        return total_distance
+        return all_distances, total_distance
 
 
 if __name__ == "__main__":
