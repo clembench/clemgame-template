@@ -1,8 +1,11 @@
-"""The script generates game instances for the Taboo game. It selects target words and generates a list of related words.
-The script uses either ConceptNet or the OpenAI API to retrieve or generate these related words.
+"""
+Generate game instances for the Multimodal CleanUp game, making use of the icons in 'resources/icons/' 
+and the backgrounds in 'resources/backgrounds/'. 
+
+To download more icons, see 'resources/get_icons.py'.
 
 usage:
-python3 instancegenerator.py
+python instancegenerator.py
 Creates instance.json file in ./in
 
 """
@@ -51,6 +54,18 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
             experiment = self.add_experiment(e)
             experiment["player1_initial_prompt"] = self.load_template("resources/initial_prompts/player1")
             experiment["player2_initial_prompt"] = self.load_template("resources/initial_prompts/player2")
+
+            experiment['feedback_say'] = self.load_template("resources/intermittent_prompts/feedback_say")
+            experiment['feedback_move'] = self.load_template("resources/intermittent_prompts/feedback_move")
+            experiment['feedback_other_say'] = self.load_template("resources/intermittent_prompts/feedback_other_say")
+            experiment['feedback_other_move'] = self.load_template("resources/intermittent_prompts/feedback_other_move")
+            experiment['feedback_ending'] = self.load_template("resources/intermittent_prompts/feedback_ending")
+
+            experiment['terminate_question'] = "say(finished?)"
+            experiment['terminate_answer'] = "say(finished!)"
+            
+            experiment['message_pattern'] = "say\\((?P<message>.+)\\)"
+            experiment['move_pattern'] = "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)"
 
             background_path = self._get_random_file('resources/backgrounds/')
             experiment["background"] = background_path

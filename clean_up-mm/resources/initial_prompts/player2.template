@@ -69,9 +69,4 @@ You will immediately loss the game if you:
 - Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.
 - Instruct the other player to move an icon using coordinates of target location.
 
-The other player has given the first command:
-```
-$$$$
-```
-
-Now, please say your command.
+$$OTHER_PLAYER_COMMAND$$
