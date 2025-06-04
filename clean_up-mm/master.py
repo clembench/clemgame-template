@@ -44,10 +44,14 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.player1.pic_state = PicState(background_path, game_instance['state1'])
         self.player2.pic_state = PicState(background_path, game_instance['state2'])
         
-        player1_init_text = self.experiment['player1_initial_prompt']
+        # Temporary: bypass the template loaded by `instancegenerator.py` 
+        # in case I want to change the prompt without affecting the instance state
+        player1_init_text = self.load_template("resources/initial_prompts/player1")
+        # player1_init_text = self.experiment['player1_initial_prompt']
         player1_init_image = self.player1.pic_state.draw()
         player1_init_context = self.__prep_text_and_image_prompt(player1_init_text, 
-                                                                player1_init_image)    
+                                                                player1_init_image, 
+                                                                content_only=False)    
         
         # [Question]: codebase
         # in `__call__` of `/clemcore/clemgame/player.py`, 
@@ -64,22 +68,38 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
     # [Question]: codebase
     # I don't see how image_url is prepared in multimodal reference game
-    def __prep_text_and_image_prompt(self, text_content, image_url): 
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": text_content
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{image_url}"
+    def __prep_text_and_image_prompt(self, text_content, image_url, content_only=False): 
+        if not content_only:
+        # used when init a player with initial_context
+            return {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": text_content
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_url}"
+                        }
                     }
-                }
-            ]
-        }
+                ]
+            }
+        else: 
+        # used when directly calling `set_context_for`
+            return [
+                        {
+                            "type": "text",
+                            "text": text_content
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_url}"
+                            }
+                        }
+                    ]
 
     def __other_player(self) -> Player:
         """
@@ -130,11 +150,16 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         to_inject = self.experiment['feedback_other_say'].replace("$$OTHER_PLAYER_SAY$$", response).replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
         
         if init:
-            player2_init_text = self.experiment['player2_initial_prompt'].replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+            # Temporary: bypass the template loaded by `instancegenerator.py` 
+            # in case I want to change the prompt without affecting the instance state
+            player2_init_text = self.load_template("resources/initial_prompts/player2")
+            player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+
             player2_init_image = self.player2.pic_state.draw()
 
             player2_init_context = self.__prep_text_and_image_prompt(player2_init_text, 
-                                                                    player2_init_image)            
+                                                                    player2_init_image, 
+                                                                    content_only=True)            
             
             self.set_context_for(self.__other_player(), player2_init_context)
         else:
@@ -153,24 +178,30 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         obj = match.group("obj")
         x = match.group("x")
         y = match.group("y")
-        player.pic_state.update(obj, x, y)
+        player.pic_state.update(obj, int(x), int(y))
 
         # build the 1st part of feedback to current player (eg. the state of your pic is changed)
         feedback_text = self.experiment['feedback_move']
-        feedback_image = self.player.pic_state.draw()
+        feedback_image = player.pic_state.draw()
         context = self.__prep_text_and_image_prompt(feedback_text, 
-                                                    feedback_image)   
+                                                    feedback_image, 
+                                                    content_only=True)   
         self.set_context_for(player, context)
         
         # prep context for the next player
         to_inject = self.experiment['feedback_other_move'].replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
 
         if init:
-            player2_init_text = self.experiment['player2_initial_prompt'].replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+            # Temporary: bypass the template loaded by `instancegenerator.py` 
+            # in case I want to change the prompt without affecting the instance state
+            player2_init_text = self.load_template("resources/initial_prompts/player2")
+            player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+            
             player2_init_image = self.player2.pic_state.draw()
 
             player2_init_context = self.__prep_text_and_image_prompt(player2_init_text, 
-                                                                    player2_init_image)            
+                                                                    player2_init_image, 
+                                                                    content_only=True)            
             
             self.set_context_for(self.__other_player(), player2_init_context)            
         else: 
@@ -204,6 +235,10 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
             if bool(self.__match_move(parsed_response)):
                 self.__process_move(player, parsed_response, init=False)
+
+        print("===== at the end of _advance_game =====")
+        print(f"player.name: {player.name}")
+        print(f"response: {parsed_response}")            
 
     def _does_game_proceed(self):
         """

@@ -25,8 +25,8 @@ Strictly follow the format without adding anything else. No thinking process, no
 say(Let's move icon D!)
 
 # Correct example
-# suppose you have an icon that looks like "brain in a lightbulb"
-say(Let's move the icon with a brain in a lightbulb!)
+# suppose you describe an icon with <ICON_DESCRIPTION>
+say(Let's move the icon <ICON_DESCRIPTION>!)
 
 # If the other player agrees, move on to choose and agree on a target location
 ```
@@ -35,29 +35,20 @@ say(Let's move the icon with a brain in a lightbulb!)
 
 ```
 # Wrong example
-say(Let's move the "brain in a lightbulb" icon to location (800, 100)!)
+say(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)
 
 # Correct example
-# suppose in the background picture there is a yellow fridge with its top visible
-say(Let's move the "brain in a lightbulb" icon to the top of the yellow fridge!)
+# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference
+say(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)
 
 # If the other player agrees, 
-# and if the icon "brain in a lightbulb" has ID "A" for you
-# and if "top of the yellow fridge" is at (300, 500)
+# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you
+# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)
 # then you send the `move` command 
-move(A, 300, 500)
+move(ID, X, Y)
 ```
 
 3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.
-
-```
-# Example
-# Inform the other player
-say(My icon is not in place yet, I will move it one more time.)
-
-# And make a move
-move(ICON_ID, X_COORD, Y_COORD)
-```
 
 **Ending of The Game**
 To indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.
