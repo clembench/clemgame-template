@@ -8,8 +8,8 @@ import re
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
     GameError, ParseError, RuleViolationError
-# from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
-#     METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
+    # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
 from resources.grids.game_grid import GameGrid
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
-        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)", "say(Move C to (1, 1).)",]
+        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)"] # , "say(Move C to (1, 1).)",]
         self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
@@ -85,8 +85,8 @@ class CleanUpMaster(DialogueGameMaster):
                         match = re.compile(restricted).search(response)
                         if match:
                             self.terminate = True
-                            self.log_to_self('rule_violation', f"Response violates restrictions: {response}")
-                            logger.warning(f"Response contains restricted content: {response}")
+                            self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
+                            logger.warning(f"Response '{response}' violates restriction: {restricted}")
                 return response
             else:
                 self.terminate = True
@@ -191,12 +191,18 @@ class CleanUpMaster(DialogueGameMaster):
             self.log_key('success', 'true')
         else:
             self.log_key('success', 'false')
-        all_distances, total_distance = self.player_1.grid.compare(self.player_2.grid)
-        self.log_to_self('total_distance', str(total_distance))
-        self.log_to_self('all_distances', str(all_distances))
+        total_distance = self.player_1.grid.distance_sum(self.player_2.grid)
+        worst_distance_sum = self.player_1.grid.worst_distance_sum()
+        # self.log_to_self('total_distance', str(total_distance))
+        self.log_key('total_distance', total_distance)
+        self.log_key('worst_distance_sum', worst_distance_sum)
+        self.log_key('penalties', self.penalties)
+        self.log_key('obj_count', len(self.player_1.grid.objects))
+        self.log_key(METRIC_ABORTED, int(self.terminate))
+        self.log_key(METRIC_SUCCESS, int(self.success))
+        self.log_key(METRIC_LOSE, int(not self.success))
 
-
-class SomeGameScorer(GameScorer):
+class CleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
@@ -206,6 +212,32 @@ class SomeGameScorer(GameScorer):
             for event in episode_interactions[turn_idx]:
                 if event['type'] == 'player_response':
                     self.log_turn_score(turn_idx, 'response_received', 1)
+
+    def compute_episode_scores(self, episode_interactions: Dict) -> float:
+        """ Compute the episode score based on the interactions """
+        total_distance = episode_interactions['total_distance']
+        worst_distance_sum = episode_interactions['worst_distance_sum']
+        turn_count = len(episode_interactions['turns'])
+        penalties = episode_interactions['penalties']
+        obj_count = episode_interactions['obj_count']
+
+        self.log_episode_score("Penalties", penalties)
+        self.log_episode_score("Turn Count", turn_count)
+
+        distance_score = 1 - (total_distance / worst_distance_sum)
+        self.log_episode_score("Distance Score", distance_score)
+        # we allow two turns per object, after that every turn adds a penalty
+        turn_count = max(turn_count - obj_count * 2, 0)
+        penalties += turn_count
+        if penalties > 0:
+            penalty_score = 1 / penalties
+        else:
+            penalty_score = 1
+        self.log_episode_score("Penalty Score", penalty_score)
+        # The final score is a product of the distance score and the penalty score
+        main_score = distance_score * penalty_score
+        self.log_episode_score(BENCH_SCORE, main_score)
+
 
     def log_main_score(self, episode_interactions: Dict):
         if episode_interactions['success'] == 'true':
@@ -223,5 +255,5 @@ class SomeGameBenchmark(GameBenchmark):
         return CleanUpMaster(self.game_name, self.game_path, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
-        return SomeGameScorer(self.game_name, experiment, game_instance)
+        return CleanUpScorer(self.game_name, experiment, game_instance)
 

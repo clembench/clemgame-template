@@ -21,7 +21,7 @@ from resources.grids.game_grid import GameGrid, EMPTY_SYMB
 
 logger = logging.getLogger(__name__)
 
-N_INSTANCES = 3
+N_INSTANCES = 10
 LANGUAGE = 'en'
 
 # Seed for reproducibility

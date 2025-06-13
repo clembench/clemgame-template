@@ -226,27 +226,13 @@ class GameGrid:
                 all_distances[obj] = distance
                 total_distance += distance
         return total_distance
-    
+
     def worst_distance_sum(self):
         """
         Worst case scenario: all identical objects are at opposite corners of the grid.
         """
         max_distance = ((self.width - 1) ** 2 + (self.height - 1) ** 2) ** 0.5
         return max_distance * len(self.objects)
-    
-    def distance_score(self, other):
-        """
-        Returns a score based on the distance sum compared to the worst case scenario.
-        """
-        if not isinstance(other, GameGrid):
-            raise ValueError("Comparison is only supported between two GameGrid instances")
-        if not self.object_set() == other.object_set():
-            raise ValueError("Grids must have the same objects for comparison")
-        
-        distance_sum = self.distance_sum(other)
-        worst_case = self.worst_distance_sum()
-        return 1 - (distance_sum / worst_case)
-
 
 if __name__ == "__main__":
     grd = GameGrid.from_json('resources/grids/gs11x11_b7.json')
