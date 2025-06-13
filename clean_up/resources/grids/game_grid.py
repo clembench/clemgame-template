@@ -169,7 +169,6 @@ class GameGrid:
                 y = int(y) + 1
             except ValueError:
                 raise ValueError(f"Invalid x-coordinate: {y}. It should be an integer.")
-        # TODO: check if this works!
         if obj in self.objects:
             old_x, old_y = self.objects[obj]
             if check_empty and self.grid[y][x][-1] != EMPTY_SYMB:
@@ -208,16 +207,16 @@ class GameGrid:
             return self.objects[obj]
         raise ValueError(f"Object '{obj}' not found in the grid")
         
-    def compare(self, other):
+    def distance_sum(self, other):
         """
-        Compares two grids and returns the Euclidean distance between the identical objects
+        Compares two grids and returns the sum of Euclidean distances between the identical objects
         """
         if not isinstance(other, GameGrid):
             raise ValueError("Comparison is only supported between two GameGrid instances")
         if not self.object_set() == other.object_set():
             raise ValueError("Grids must have the same objects for comparison")
         
-        total_distance = 0
+        total_distance = 0.0
         all_distances = {}
         for obj in self.objects:
             if obj in other.objects:
@@ -226,7 +225,27 @@ class GameGrid:
                 distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
                 all_distances[obj] = distance
                 total_distance += distance
-        return all_distances, total_distance
+        return total_distance
+    
+    def worst_distance_sum(self):
+        """
+        Worst case scenario: all identical objects are at opposite corners of the grid.
+        """
+        max_distance = ((self.width - 1) ** 2 + (self.height - 1) ** 2) ** 0.5
+        return max_distance * len(self.objects)
+    
+    def distance_score(self, other):
+        """
+        Returns a score based on the distance sum compared to the worst case scenario.
+        """
+        if not isinstance(other, GameGrid):
+            raise ValueError("Comparison is only supported between two GameGrid instances")
+        if not self.object_set() == other.object_set():
+            raise ValueError("Grids must have the same objects for comparison")
+        
+        distance_sum = self.distance_sum(other)
+        worst_case = self.worst_distance_sum()
+        return 1 - (distance_sum / worst_case)
 
 
 if __name__ == "__main__":

@@ -110,3 +110,40 @@ class PicState:
     def update_and_draw(self, icon_id, X, Y): 
         self.update(icon_id, X, Y)
         return self.draw()
+    
+    def distance_sum(self, other):
+        """
+        Compares two PicState instances and returns the sum of Euclidean distances
+        between the identical objects.
+        """
+        if not isinstance(other, PicState):
+            raise ValueError("Comparison is only supported between two PicState instances")
+        
+        total_distance = 0.0
+        for obj in self.state:
+            for other_obj in other.state:
+                if obj['id'] == other_obj['id']:
+                    x1, y1 = obj['coord']
+                    x2, y2 = other_obj['coord']
+                    distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+                    total_distance += distance
+        return total_distance
+    
+    def worst_distance_sum(self):
+        """
+        Worst case scenario: all identical objects are at opposite corners of the grid.
+        """
+        max_distance = ((self.bg_width - 1) ** 2 + (self.bg_height - 1) ** 2) ** 0.5
+        return max_distance * len(self.state)
+    
+    def distance_score(self, other):
+        """
+        Returns a score based on the distance sum compared to the worst case scenario.
+        """
+        if not isinstance(other, PicState):
+            raise ValueError("Comparison is only supported between two PicState instances")
+        
+        distance_sum = self.distance_sum(other)
+        worst_case = self.worst_distance_sum()
+        return 1 - (distance_sum / worst_case)
+    

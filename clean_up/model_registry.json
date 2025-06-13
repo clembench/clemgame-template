@@ -393,5 +393,31 @@
             "url": "https://github.com/deepseek-ai/DeepSeek-V3/blob/main/LICENSE-MODEL"
         },
         "model_config": {}
+    },
+    {
+        "model_name": "mistral-large-latest",
+        "model_id": "mistral-large-latest",
+        "backend": "mistral",
+        "release_date": "2024-11-01",
+        "open_weight": false,
+        "parameters": "123B",
+        "languages": [
+            "en",
+            "fr",
+            "de",
+            "es",
+            "it",
+            "pt",
+            "zh",
+            "ja",
+            "ru",
+            "ko"
+        ],
+        "context_size": "128k",
+        "license": {
+            "name": "Mistral",
+            "url": "https://mistral.ai/static/licenses/MRL-0.1.md"
+        },
+        "model_config": {}
     }
 ]
