@@ -11,7 +11,7 @@ from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, Dialo
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
     # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
-from resources.grids.game_grid import GameGrid
+from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ class CleanUpMaster(DialogueGameMaster):
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.terminate = False  # True if game is terminated because of rule violation or parse error
+        self.aborted = False  # True if game is aborted due to a rule violation or parse error
         self.penalties = 0      # Number of collectively accumulated penalties
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
@@ -85,11 +86,13 @@ class CleanUpMaster(DialogueGameMaster):
                         match = re.compile(restricted).search(response)
                         if match:
                             self.terminate = True
+                            self.aborted = True
                             self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
                             logger.warning(f"Response '{response}' violates restriction: {restricted}")
                 return response
             else:
                 self.terminate = True
+                self.aborted = True
                 self.log_to_self('parse_error', f"Invalid response format")
                 raise ParseError(f"Invalid response format: {response}")
 
@@ -161,6 +164,7 @@ class CleanUpMaster(DialogueGameMaster):
             return Template(self.game_instance['penalty_counter']).substitute(
                 penalty=self.penalties, max_penalties=self.max_penalties
             )
+        # In case of strict mode (self.max_penalties == 0), we return and empty string
         return ""
 
     def _does_game_proceed(self):
@@ -191,14 +195,12 @@ class CleanUpMaster(DialogueGameMaster):
             self.log_key('success', 'true')
         else:
             self.log_key('success', 'false')
-        total_distance = self.player_1.grid.distance_sum(self.player_2.grid)
-        worst_distance_sum = self.player_1.grid.worst_distance_sum()
-        # self.log_to_self('total_distance', str(total_distance))
-        self.log_key('total_distance', total_distance)
-        self.log_key('worst_distance_sum', worst_distance_sum)
-        self.log_key('penalties', self.penalties)
-        self.log_key('obj_count', len(self.player_1.grid.objects))
-        self.log_key(METRIC_ABORTED, int(self.terminate))
+        grid_scores = self.player_1.grid.get_scores(self.player_2.grid)
+        for key, value in grid_scores.items():
+            self.log_key(key, value)
+        self.log_key('Penalties', self.penalties)
+        self.log_key('Object Count', len(self.player_1.grid.objects))
+        self.log_key(METRIC_ABORTED, int(self.aborted))
         self.log_key(METRIC_SUCCESS, int(self.success))
         self.log_key(METRIC_LOSE, int(not self.success))
 
@@ -215,17 +217,17 @@ class CleanUpScorer(GameScorer):
 
     def compute_episode_scores(self, episode_interactions: Dict) -> float:
         """ Compute the episode score based on the interactions """
-        total_distance = episode_interactions['total_distance']
-        worst_distance_sum = episode_interactions['worst_distance_sum']
         turn_count = len(episode_interactions['turns'])
-        penalties = episode_interactions['penalties']
-        obj_count = episode_interactions['obj_count']
+        penalties = episode_interactions['Penalties']
+        obj_count = episode_interactions['Object Count']
 
         self.log_episode_score("Penalties", penalties)
         self.log_episode_score("Turn Count", turn_count)
 
-        distance_score = 1 - (total_distance / worst_distance_sum)
-        self.log_episode_score("Distance Score", distance_score)
+        total_distance = episode_interactions[TOTAL_DISTANCE]
+        self.log_episode_score(TOTAL_DISTANCE, total_distance)
+        distance_score = episode_interactions[DISTANCE_SCORE]
+        self.log_episode_score(DISTANCE_SCORE, distance_score)
         # we allow two turns per object, after that every turn adds a penalty
         turn_count = max(turn_count - obj_count * 2, 0)
         penalties += turn_count
@@ -235,15 +237,19 @@ class CleanUpScorer(GameScorer):
             penalty_score = 1
         self.log_episode_score("Penalty Score", penalty_score)
         # The final score is a product of the distance score and the penalty score
-        main_score = distance_score * penalty_score
-        self.log_episode_score(BENCH_SCORE, main_score)
-
-
-    def log_main_score(self, episode_interactions: Dict):
-        if episode_interactions['success'] == 'true':
-            self.log_episode_score("BENCH_SCORE", 100)
-        elif episode_interactions['success'] == 'false':
-            self.log_episode_score("BENCH_SCORE", 0)
+        logger.info(f"Game: {episode_interactions['meta']['game_name']}, experiment: {episode_interactions['meta']['experiment_name']}, game_id: {episode_interactions['meta']['game_id']}, dialogue_pair: {episode_interactions['meta']['dialogue_pair']}")
+        logger.info(f'{METRIC_SUCCESS}: {episode_interactions[METRIC_SUCCESS]}, {METRIC_ABORTED}: {episode_interactions[METRIC_ABORTED]}')
+        if episode_interactions[METRIC_SUCCESS]:
+            logger.info(f'success, logging Main Score as {distance_score * penalty_score}')
+            self.log_episode_score(BENCH_SCORE, distance_score * penalty_score)
+        elif episode_interactions[METRIC_ABORTED]:
+            logger.info(f'aborted, logging Main Score as np.nan')
+            self.log_episode_score(BENCH_SCORE, np.nan)
+    # def log_main_score(self, episode_interactions: Dict):
+    #     if episode_interactions['success'] == 'true':
+    #         self.log_episode_score("BENCH_SCORE", 100)
+    #     elif episode_interactions['success'] == 'false':
+    #         self.log_episode_score("BENCH_SCORE", 0)
 
 
 class SomeGameBenchmark(GameBenchmark):

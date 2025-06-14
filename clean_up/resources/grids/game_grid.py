@@ -3,6 +3,8 @@ import json
 from string import Template
 
 EMPTY_SYMB = "◌"
+TOTAL_DISTANCE = "Total Distance"
+DISTANCE_SCORE = "Distance Score"
 
 move_messages = {}
 with open("resources/grids/move_messages.json", "r") as f:
@@ -233,6 +235,37 @@ class GameGrid:
         """
         max_distance = ((self.width - 1) ** 2 + (self.height - 1) ** 2) ** 0.5
         return max_distance * len(self.objects)
+    
+    def distance_score(self, other):
+        """
+        Returns a score based on the distance sum compared to the worst case scenario.
+        """
+        if not isinstance(other, GameGrid):
+            raise ValueError("Comparison is only supported between two GameGrid instances")
+        if not self.object_set() == other.object_set():
+            raise ValueError("Grids must have the same objects for comparison")
+        
+        distance_sum = self.distance_sum(other)
+        worst_case = self.worst_distance_sum()
+        return 1 - (distance_sum / worst_case)
+    
+    def get_scores(self, other):
+        """
+        Returns a dictionary with the distance sum and distance score compared to the worst case scenario.
+        """
+        if not isinstance(other, GameGrid):
+            raise ValueError("Comparison is only supported between two GameGrid instances")
+        if not self.object_set() == other.object_set():
+            raise ValueError("Grids must have the same objects for comparison")
+        
+        distance_sum = self.distance_sum(other)
+        worst_case = self.worst_distance_sum()
+        distance_score = 1 - (distance_sum / worst_case)
+        
+        return {
+            TOTAL_DISTANCE: distance_sum,
+            DISTANCE_SCORE: distance_score
+        }
 
 if __name__ == "__main__":
     grd = GameGrid.from_json('resources/grids/gs11x11_b7.json')

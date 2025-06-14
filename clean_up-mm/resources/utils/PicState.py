@@ -136,3 +136,14 @@ class PicState:
         max_distance = ((self.bg_width - 1) ** 2 + (self.bg_height - 1) ** 2) ** 0.5
         return max_distance * len(self.state)
     
+    def distance_score(self, other):
+        """
+        Returns a score based on the distance sum compared to the worst case scenario.
+        """
+        if not isinstance(other, PicState):
+            raise ValueError("Comparison is only supported between two PicState instances")
+        
+        distance_sum = self.distance_sum(other)
+        worst_case = self.worst_distance_sum()
+        return 1 - (distance_sum / worst_case)
+    
