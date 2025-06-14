@@ -143,7 +143,7 @@ def main():
     parser.add_argument("-e", "--encoding", type=str, default="grid_encoding.lp", help="Path to the ASP encoding file")
     parser.add_argument("-m", "--models", type=int, default=1000, help="Number of models to generate")
     parser.add_argument("-d", "--display", type=int, default=20, help="Number of random grids to display")
-    parser.add_argument("-g", "--grid_size", type=int, nargs=2, default=[21,9], help="Width and height of the grid, default is 21, 9")
+    parser.add_argument("-gs", "--grid_size", type=int, nargs=2, default=[21,9], help="Width and height of the grid, default is 21, 9")
     parser.add_argument("-n", "--neighbors", type=int, nargs=2, default=[None, None], help="Min and max number of empty neighbors any empty cell must have")
     parser.add_argument("-s", "--single", type=int, default=None, help="Enforce number of empty cells without neighbors")
     parser.add_argument("-c", "--corners", type=int, default=None, help="Limit number of corner tiles (\"┌\";\"┐\";\"└\";\"┘\"), e.g. to 12")
