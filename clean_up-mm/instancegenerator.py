@@ -18,12 +18,12 @@ from clemcore.clemgame import GameInstanceGenerator
 
 
 """
-3 variations of the game: 
-- background size: small / big? 
-- icon type: normal / abstract? 
-
-use `small_normal` as basis, 
-compare it to `big_normal` and `big_abstract`
+6 variations of the game: 
+- dimension 1: diff type of icons (normal, abstract, similar)
+    * when normal, randomly select N normal category, from each category pick 1
+    * when similar, randomly select 1 normal category, from it select N pic
+    * when abstract, randomly select N abstract icons  
+- dimension 2: diff number of icons (a few, many)
 """
 # number of instances per experiment
 N_INSTANCES = 10 
@@ -38,13 +38,14 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
         super().__init__(os.path.dirname(__file__))
 
     def on_generate(self):
-        # 1. load background -> choose one of the backgrounds
+        # for each experiment type, 
+            # 1. load background
 
-        # 2. randomly choose N_ICONS categories of icons, 
-        #    and for each category, randomly choose 1 of the icons
+            # 2. randomly choose N_ICONS categories of icons, 
+            #    and for each category, randomly choose 1 of the icons
 
-        # 3. shuffle the selected icons, 
-        #    assemble two state per instance: [ { id, path, coord }, .. ]
+            # 3. shuffle the selected icons, 
+            #    assemble two state per instance: [ { id, path, coord }, .. ]
 
         # for e in ["small_normal", "big_normal", "small_abstract", "small_similar"]:
         for e in ["small_normal"]:

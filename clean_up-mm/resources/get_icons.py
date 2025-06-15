@@ -6,14 +6,23 @@ import argparse
 """
 Getting icons from Freepik API, 
 rate limits apply, see: https://www.freepik.com/developers/dashboard/limits
+API reference: https://docs.freepik.com/api-reference/icons/download-an-icon
 
-Usage: 
+----- SCRIPT USAGE -----
 Run this in "resource" directory to save icons to the right path:
 ```
 API_KEY=<Freepik_API_key> python get_icons.py <TERM>
 ```
-
 `<TERM>` is the search term, also will be used as the directory to save the requested icons.
+
+----- REDISTRIBUTION -----
+Freepik icons come from Flation,
+https://support.flaticon.com/s/article/Accessing-the-API-FI?language=en_US
+We are not allowed to redistribute the downloaded icons. 
+https://www.flaticon.com/legal
+
+The workaround is to download metadata (ID of the icons) and store them as instance.json, 
+only really download the icons on the fly, when GM populate the instance.
 """
 
 # 0. search term 
@@ -37,10 +46,11 @@ headers = {"x-freepik-api-key": API_KEY }
 
 params = {
     "term": term,
-    "page": 1,
+    "page": 2,
     "per_page": 20,
     "filters[color]": "multicolor",
     "filters[shape]": "fill",
+    "filters[free_svg]": "free",
     "filters[icon_type][]": "standard"
 }
 

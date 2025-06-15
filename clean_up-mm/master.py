@@ -32,6 +32,13 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         super().__init__(game_name, game_path, experiment, player_models)
 
     def _on_setup(self, **game_instance):
+        # 0. init player
+        # 1. each player has a PicState, 
+        #    which contains the background and the initial icon state
+        #    and is responsible for moving icons + generate base64 encoded image
+        # 2. load and set init_context for player 1
+        # 3. init game state flags: success? abort? finished?
+
         # [Question]: game design
         # now the background is the same for all instances in an experiment
         # is it necessary to get diff background for each instance in an experiment? 
@@ -52,12 +59,11 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         player1_init_context = self.__prep_text_and_image_prompt(player1_init_text, 
                                                                 player1_init_image, 
                                                                 content_only=False)    
-        
         # [Question]: codebase
         # in `__call__` of `/clemcore/clemgame/player.py`, 
         # `initial_prompt` is glued to message history, preceding `initial_context`, 
         # what's the use of sending a message without getting an reply? 
-        # is it a soft version of system message (role is still 'user'), can we set system message here? 
+        # is it a soft version of system message (role is still 'user'), can we set system message here?         
         self.add_player(self.player1, initial_context=player1_init_context)
         self.add_player(self.player2)
         
@@ -65,6 +71,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.abort = False      # True if game is terminated because of rule violation or parse error        
+
 
     # [Question]: codebase
     # I don't see how image_url is prepared in multimodal reference game
@@ -129,12 +136,13 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
     def _on_parse_error(self, error: GameError):
         self.success = False
+        self.abort = True
 
     def __process_say(self, player: Player, response: str, init: bool = False):
         """
         Process the say response from the player.
         If `init` is True, it means this is the initial call for the next player, 
-        need to build the initial context for the next player.
+        need to inject the response of the current player in the initial context for the next player.
         """
         if response == self.experiment['terminate_question']:
             self.finished = True
@@ -171,7 +179,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         """
         Process the move response from the player.
         If `init` is True, it means this is the initial call for the next player, 
-        need to build the initial context for the next player.
+        need to inject the response of the current player in the initial context for the next player.
         """
         # alter the pic_state of the current player
         match = self.__match_move(response)
@@ -196,7 +204,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             # in case I want to change the prompt without affecting the instance state
             player2_init_text = self.load_template("resources/initial_prompts/player2")
             player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
-            
+
             player2_init_image = self.player2.pic_state.draw()
 
             player2_init_context = self.__prep_text_and_image_prompt(player2_init_text, 
@@ -214,20 +222,33 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         Args: 
             - parsed_response: not really parsed, rather, **validated** response from the player
         """
+        # Two cases: 
+            # 0. if just finished 1st prompt to player1, 
+            #    next up is 1st prompt to player2, 
+            #    need to inject player1's command into the init context for player2,
+            # 1. if each player has been prompted at least once
+        # in both cases: 
+            # - build (part of) feedback to current player;
+            #   eg. "Your message has been relayed to the other player"
+            #   eg. "The state of your pic has been changed"
+            # - build (part of) feedback to the othe palyer: 
+            #   eg. "The other player said: <parsed_response>"
+            #   eg. "The other player moved an icon on their picture"
+
+
         if not parsed_response:
             raise RuleViolationError
         
         # The next player hasn't been prompted, need to init their context
         if self.__other_player()._is_initial_call: 
-
             if bool(self.__match_say(parsed_response)):
                 self.__process_say(player, parsed_response, init=True)
-            
+
             elif bool(self.__match_move(parsed_response)):
                 self.__process_move(player, parsed_response, init=True)
+
             else: 
                 raise GameError(f"Invalid response format: {parsed_response}")
-
         # All players have been prompted at least once
         else: 
             if bool(self.__match_say(parsed_response)):
@@ -238,12 +259,11 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
         print("===== at the end of _advance_game =====")
         print(f"player.name: {player.name}")
-        print(f"response: {parsed_response}")            
+        print(f"response: {parsed_response}") 
+        print(f"[DEBUG] log_event: {self._game_recorder.__class__}")
+           
 
     def _does_game_proceed(self):
-        """
-        Proceed anyways. This should check for anything that ends an episode.
-        """
         if self.success or self.abort: 
             return False
         

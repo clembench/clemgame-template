@@ -15,7 +15,6 @@ class PicState:
         self.bg_img = Image.open(self.background_path)
         self.bg_width, self.bg_height = self.bg_img.size
 
-    
     def _draw_overlay(self, ax):
         # Load background image
         bg_img = mpimg.imread(self.background_path)
@@ -40,7 +39,6 @@ class PicState:
         plt.tight_layout()
         # return fig, ax            
 
-
     def _draw_mappings(self, ax, thumbnail_size=(50, 50), columns=3):
         # state is of format [{id, path, coord}], each inner dictionary represents an image
         rows = -(-len(self.state) // columns)  # Ceiling division
@@ -62,9 +60,8 @@ class PicState:
 
         plt.tight_layout()
 
-    
+    # return the base64 encoding for LLM,
     def draw(self, filename=None):        
-        # return the base64 encoding for LLM,
 
         # Create a gridspec with different proportions for the two subplots
         fig = plt.figure(figsize=(14, 6))
