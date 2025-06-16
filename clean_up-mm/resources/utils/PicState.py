@@ -1,15 +1,30 @@
 import io
+import requests
 import base64
-
-from PIL import Image
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+
+from io import BytesIO
+from PIL import Image
 
 
 class PicState:
     def __init__(self, background_path, state):
+        """
+        background_path: Path to the background image.
+        state: [ { id, coord, name, url, freepik_id }, ... ]
+                each inner dictionary represents an icon with its properties.
+        """
         self.background_path = background_path
         self.state = state
+        for entry in self.state: 
+            response = requests.get(entry['url'])
+            response.raise_for_status()
+            # a PIL.Image.Image object
+            # use case: ax.imshow(img)
+            entry['img'] = Image.open(BytesIO(response.content)) 
+
+        # self.state: [ { id, coord, name, url, freepik_id, img }, ... ]
 
         # Load background image and get dimensions
         self.bg_img = Image.open(self.background_path)
@@ -30,17 +45,16 @@ class PicState:
 
         # Overlay each image in state
         for entry in self.state:
-            overlay_img = Image.open(entry['icon_path'])
             x, y = entry['coord']
-            w, h = overlay_img.size
-            ax.imshow(overlay_img, extent=(x - w // 2, x + w // 2, y + h // 2, y - h // 2))
+            w, h = entry['img'].size
+            ax.imshow(entry['img'], extent=(x - w // 2, x + w // 2, y + h // 2, y - h // 2))
     
         # plt.gca().invert_yaxis()
-        plt.tight_layout()
+        plt.tight_layout()  
         # return fig, ax            
 
     def _draw_mappings(self, ax, thumbnail_size=(50, 50), columns=3):
-        # state is of format [{id, path, coord}], each inner dictionary represents an image
+        
         rows = -(-len(self.state) // columns)  # Ceiling division
 
         # Create subplots for mappings
@@ -52,7 +66,7 @@ class PicState:
                     inset_ax = ax.inset_axes([j / columns, 1 - (i + 1) / rows, 1 / columns, 1 / rows * 0.85]) 
                     obj = self.state[i * columns + j]
 
-                    img = Image.open(obj["icon_path"]).resize(thumbnail_size)
+                    img = obj['img'].resize(thumbnail_size)
                     
                     inset_ax.imshow(img)
                     inset_ax.set_title(f"ID: {obj['id']}", fontsize=10)
@@ -60,9 +74,10 @@ class PicState:
 
         plt.tight_layout()
 
-    # return the base64 encoding for LLM,
-    def draw(self, filename=None):        
-
+    def draw(self, filename=None):       
+        """
+        Return the base64 encoded image for LLM,
+        """ 
         # Create a gridspec with different proportions for the two subplots
         fig = plt.figure(figsize=(14, 6))
         gs = fig.add_gridspec(1, 2, width_ratios=[2, 1])  # 2:1 ratio
@@ -92,11 +107,11 @@ class PicState:
 
         return image_base64        
 
-    """
-    When model plays `move(ID, X, Y)`, 
-    update the state.
-    """
     def update(self, icon_id, X, Y):
+        """
+        When model plays `move(ID, X, Y)`, 
+        update the state.
+        """
         # Update the coordinates for the object with the specified ID
         for obj in self.state:
             if obj['id'] == icon_id:
@@ -119,8 +134,8 @@ class PicState:
         total_distance = 0.0
         for obj in self.state:
             for other_obj in other.state:
-                # for now, icon_path is the real unique identifier 
-                if obj['icon_path'] == other_obj['icon_path']:
+                # freepik_id is the real unique identifier 
+                if obj['freepik_id'] == other_obj['freepik_id']:
                     x1, y1 = obj['coord']
                     x2, y2 = other_obj['coord']
                     distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5

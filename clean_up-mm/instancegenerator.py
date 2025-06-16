@@ -129,6 +129,7 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
                     for sub in subcategories:
                         assert n_icons_per_subcategory <= len(metadata[category][sub]), \
                             f"n_icons_per_subcategory ({n_icons_per_subcategory}) must be less than or equal to the number of icons in subcategory {sub} ({len(metadata[category][sub])})"
+                        
                         for icon in random.sample(metadata[category][sub], n_icons_per_subcategory):
                             chosen_icons.append(icon)
                 
@@ -193,6 +194,7 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
             id = chr(ord('A') + idx) # use A,B,C,D.. as ID
             
             state.append({"id": id, "coord": rand_coords[idx], **icon})
+
         return state
 
     def _get_random_nonoverlapping_coords(self, icon_width, bg_width, bg_height, n):
@@ -209,7 +211,7 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
             for x in range(min_x, max_x + 1, step)
             for y in range(min_y, max_y + 1, step)
         ]
-        assert n < len(valid_positions)
+        assert n <= len(valid_positions)
         return random.sample(valid_positions, n)
     
 
