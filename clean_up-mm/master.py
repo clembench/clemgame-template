@@ -1,13 +1,14 @@
 import os.path
+import json
 import re
 from typing import Dict, Tuple, List, Union
 import logging
 import numpy as np
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
-    GameError, ParseError
+from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameError, ParseError
 from clemcore.clemgame.master import RuleViolationError
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 # from clemcore.utils import file_utils, string_utils
 
 from resources.utils.PicState import PicState
@@ -67,7 +68,6 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.add_player(self.player1, initial_context=player1_init_context)
         self.add_player(self.player2)
         
-        # other attr/flags recording game state
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.abort = False      # True if game is terminated because of rule violation or parse error        
@@ -260,8 +260,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         print("===== at the end of _advance_game =====")
         print(f"player.name: {player.name}")
         print(f"response: {parsed_response}") 
-        print(f"[DEBUG] log_event: {self._game_recorder.__class__}")
-           
+
 
     def _does_game_proceed(self):
         if self.success or self.abort: 
@@ -273,33 +272,51 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         return 1 if self.success else 0
 
     def compute_episode_score(self):
-        if self.success:
-            return 100 / (self.current_round + 1)  # zero-based
-        return 0
+        p1 = self.player1.pic_state
+        p2 = self.player2.pic_state
+        distance_sum = p1.distance_sum(p2)
+        distance_score = p1.distance_score(p2)
+        self.log_key('distance_sum', distance_sum)
+        self.log_key('distance_score', distance_score)
 
     def _on_after_game(self):
-        if self.success:
-            self.log_key('success', 'true')
-        else:
-            self.log_key('success', 'false')
+        self.log_key(METRIC_ABORTED, int(self.abort))
+        # TODO: a more reasonable "lose" metric
+        self.log_key(METRIC_LOSE, int(not self.success))
+        self.log_key(METRIC_SUCCESS, int(self.success))            
 
 
-class SomeGameScorer(GameScorer):
+class MultiModalCleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
-    def score_turns(self, episode_interactions: Dict) -> None:
-        """ Turn-level scores """
-        for turn_idx in range(len(episode_interactions)):
-            for event in episode_interactions[turn_idx]:
-                if event['type'] == 'player_response':
-                    self.log_turn_score(turn_idx, 'response_received', 1)
+    # def score_turns(self, episode_interactions: Dict) -> None:
+    #     """ Turn-level scores """
+    #     for turn_idx in range(len(episode_interactions)):
+    #         for event in episode_interactions[turn_idx]:
+    #             if event['type'] == 'player_response':
+    #                 self.log_turn_score(turn_idx, 'response_received', 1)
 
-    def log_main_score(self, episode_interactions: Dict):
-        if episode_interactions['success'] == 'true':
-            self.log_episode_score("BENCH_SCORE", 100)
-        elif episode_interactions['success'] == 'false':
-            self.log_episode_score("BENCH_SCORE", 0)
+    # def log_main_score(self, episode_interactions: Dict):
+    #     if episode_interactions['success'] == 'true':
+    #         self.log_episode_score("BENCH_SCORE", 100)
+    #     elif episode_interactions['success'] == 'false':
+    #         self.log_episode_score("BENCH_SCORE", 0)
+
+    def compute_episode_scores(self, interactions: Dict):
+        """Compute any game specific game episode scores/metrics e.g. an overall accuracy metric.
+
+        Note: This method must log the game's main BENCH_SCORE
+
+        Args:
+            interactions: Dict containing the logged episode's interactions.
+        """
+        # self.log_episode_score("BENCH_SCORE", 0)
+        print("===== in compute_episode_scores =====")
+        # print(json.dumps(interactions, indent=4))
+        # dummy implementation
+        self.log_episode_score(BENCH_SCORE, interactions['distance_score'])
+
 
 
 class SomeGameBenchmark(GameBenchmark):
@@ -311,5 +328,5 @@ class SomeGameBenchmark(GameBenchmark):
         return MultiModalCleanUpMaster(self.game_name, self.game_path, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
-        return SomeGameScorer(self.game_name, experiment, game_instance)
+        return MultiModalCleanUpScorer(self.game_name, experiment, game_instance)
 

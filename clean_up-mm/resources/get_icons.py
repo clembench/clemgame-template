@@ -51,7 +51,7 @@ headers = {"x-freepik-api-key": API_KEY }
 params = {
     "term": term,
     "page": 1,
-    "per_page": 100,
+    "per_page": 50,
     "filters[color]": "multicolor",
     "filters[shape]": "fill",
     "filters[icon_type][]": "standard"
@@ -68,7 +68,7 @@ icon_info = []
 
 for obj in data['data']: 
     icon = {
-            'id': obj['id'], 
+            'freepik_id': obj['id'], 
             'name': obj['name'],
             'url': obj['thumbnails'][0]['url']
         }

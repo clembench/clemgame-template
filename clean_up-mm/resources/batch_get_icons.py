@@ -2,12 +2,15 @@ import os
 import subprocess
 
 """
-This script write the metadata of the icons to `icons/metadata.json` and downloads the icons to `icons/<TYPE>/<TERM>`.
+This script write the metadata of the icons to `icons/metadata.json` (for sending to GitHub),
+and downloads the icons to `icons/<TYPE>/<TERM>` (temporarily for dev purposes).
+
+See `get_icons.py` for the detailed reasons.
 
 ----- SCRIPT USAGE -----
 Update `pairs` with the desired icon types and search terms.
 
-Run this in "resource" directory to save icons to the right path:
+Run this in "resource" directory to save icons to the correct path:
 ```
 API_KEY=<Freepik_API_key> python batch_get_icons.py
 ```
@@ -71,7 +74,6 @@ pairs = [
     # ("abstract", "node"),
     # ("abstract", "stack"),
     # ("abstract", "function")
-
 ]
 
 for type_, term in pairs:

@@ -1,68 +1,726 @@
 {
   "experiments": [
     {
-      "name": "small_normal",
+      "name": "normal_5",
       "game_instances": [
         {
           "game_id": 0,
           "state1": [
             {
               "id": "A",
-              "icon_path": "resources/icons/laptop/Online wallet-12648671.png",
-              "coord": [200, 500]
+              "coord": [200, 500],
+              "name": "Iphone",
+              "url": "https://cdn-icons-png.freepik.com/128/644/644456.png",
+              "freepik_id": 644456
             },
             {
               "id": "B",
-              "icon_path": "resources/icons/utensils/Spoons-3583217.png",
-              "coord": [700, 300]
+              "coord": [700, 200],
+              "name": "Microwave oven",
+              "url": "https://cdn-icons-png.freepik.com/128/7305/7305922.png",
+              "freepik_id": 7305922
             },
             {
               "id": "C",
-              "icon_path": "resources/icons/hairdryer/Hairdryer-16956201.png",
-              "coord": [600, 100]
+              "coord": [500, 500],
+              "name": "Laptop",
+              "url": "https://cdn-icons-png.freepik.com/128/18161/18161699.png",
+              "freepik_id": 18161699
             },
             {
               "id": "D",
-              "icon_path": "resources/icons/french fries/French fries-4037736.png",
-              "coord": [800, 400]
+              "coord": [800, 100],
+              "name": "Hot dog",
+              "url": "https://cdn-icons-png.freepik.com/128/15730/15730469.png",
+              "freepik_id": 15730469
             },
             {
               "id": "E",
-              "icon_path": "resources/icons/electric kettle/Electric kettle-7781010.png",
-              "coord": [300, 100]
+              "coord": [900, 500],
+              "name": "Torch",
+              "url": "https://cdn-icons-png.freepik.com/128/9846/9846301.png",
+              "freepik_id": 9846301
             }
           ],
           "state2": [
             {
               "id": "A",
-              "icon_path": "resources/icons/hairdryer/Hairdryer-16956201.png",
-              "coord": [500, 200]
+              "coord": [300, 400],
+              "name": "Laptop",
+              "url": "https://cdn-icons-png.freepik.com/128/18161/18161699.png",
+              "freepik_id": 18161699
             },
             {
               "id": "B",
-              "icon_path": "resources/icons/french fries/French fries-4037736.png",
-              "coord": [300, 400]
+              "coord": [200, 400],
+              "name": "Microwave oven",
+              "url": "https://cdn-icons-png.freepik.com/128/7305/7305922.png",
+              "freepik_id": 7305922
             },
             {
               "id": "C",
-              "icon_path": "resources/icons/electric kettle/Electric kettle-7781010.png",
-              "coord": [200, 400]
+              "coord": [300, 100],
+              "name": "Torch",
+              "url": "https://cdn-icons-png.freepik.com/128/9846/9846301.png",
+              "freepik_id": 9846301
             },
             {
               "id": "D",
-              "icon_path": "resources/icons/laptop/Online wallet-12648671.png",
-              "coord": [300, 200]
+              "coord": [200, 500],
+              "name": "Hot dog",
+              "url": "https://cdn-icons-png.freepik.com/128/15730/15730469.png",
+              "freepik_id": 15730469
             },
             {
               "id": "E",
-              "icon_path": "resources/icons/utensils/Spoons-3583217.png",
-              "coord": [300, 100]
+              "coord": [900, 400],
+              "name": "Iphone",
+              "url": "https://cdn-icons-png.freepik.com/128/644/644456.png",
+              "freepik_id": 644456
             }
           ]
         }
       ],
-      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you have an icon that looks like \"brain in a lightbulb\"\nsay(Let's move the icon with a brain in a lightbulb!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the \"brain in a lightbulb\" icon to location (800, 100)!)\n\n# Correct example\n# suppose in the background picture there is a yellow fridge with its top visible\nsay(Let's move the \"brain in a lightbulb\" icon to the top of the yellow fridge!)\n\n# If the other player agrees, \n# and if the icon \"brain in a lightbulb\" has ID \"A\" for you\n# and if \"top of the yellow fridge\" is at (300, 500)\n# then you send the `move` command \nmove(A, 300, 500)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n```\n# Example\n# Inform the other player\nsay(My icon is not in place yet, I will move it one more time.)\n\n# And make a move\nmove(ICON_ID, X_COORD, Y_COORD)\n```\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
-      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you have an icon that looks like \"brain in a lightbulb\"\nsay(Let's move the icon with a brain in a lightbulb!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the \"brain in a lightbulb\" icon to location (800, 100)!)\n\n# Correct example\n# suppose in the background picture there is a yellow fridge with its top visible\nsay(Let's move the \"brain in a lightbulb\" icon to the top of the yellow fridge!)\n\n# If the other player agrees, \n# and if the icon \"brain in a lightbulb\" has ID \"A\" for you\n# and if \"top of the yellow fridge\" is at (300, 500)\n# then you send the `move` command \nmove(A, 300, 500)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n```\n# Example\n# Inform the other player\nsay(My icon is not in place yet, I will move it one more time.)\n\n# And make a move\nmove(ICON_ID, X_COORD, Y_COORD)\n```\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "feedback_say": "Your message has been relayed to the other player. ",
+      "feedback_move": "The state of your picture is updated and attached. \n",
+      "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",
+      "feedback_other_move": "The other player has made a move on their picture.\n\n$$FEEDBACK_ENDING$$",
+      "feedback_ending": "Now, please give your command.",
+      "terminate_question": "say(finished?)",
+      "terminate_answer": "say(finished!)",
+      "message_pattern": "say\\((?P<message>.+)\\)",
+      "move_pattern": "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)",
+      "background": "resources/backgrounds/kitchen.png"
+    },
+    {
+      "name": "normal_9",
+      "game_instances": [
+        {
+          "game_id": 0,
+          "state1": [
+            {
+              "id": "A",
+              "coord": [200, 100],
+              "name": "Coffee cup",
+              "url": "https://cdn-icons-png.freepik.com/128/7607/7607758.png",
+              "freepik_id": 7607758
+            },
+            {
+              "id": "B",
+              "coord": [300, 500],
+              "name": "Shower",
+              "url": "https://cdn-icons-png.freepik.com/128/3739/3739898.png",
+              "freepik_id": 3739898
+            },
+            {
+              "id": "C",
+              "coord": [600, 200],
+              "name": "Tissue roll",
+              "url": "https://cdn-icons-png.freepik.com/128/9157/9157050.png",
+              "freepik_id": 9157050
+            },
+            {
+              "id": "D",
+              "coord": [800, 100],
+              "name": "Blender",
+              "url": "https://cdn-icons-png.freepik.com/128/1002/1002136.png",
+              "freepik_id": 1002136
+            },
+            {
+              "id": "E",
+              "coord": [500, 200],
+              "name": "Speaker",
+              "url": "https://cdn-icons-png.freepik.com/128/3650/3650920.png",
+              "freepik_id": 3650920
+            },
+            {
+              "id": "F",
+              "coord": [400, 200],
+              "name": "Bathtub",
+              "url": "https://cdn-icons-png.freepik.com/128/8037/8037855.png",
+              "freepik_id": 8037855
+            },
+            {
+              "id": "G",
+              "coord": [900, 500],
+              "name": "French fries",
+              "url": "https://cdn-icons-png.freepik.com/128/15857/15857663.png",
+              "freepik_id": 15857663
+            },
+            {
+              "id": "H",
+              "coord": [400, 500],
+              "name": "Laundry",
+              "url": "https://cdn-icons-png.freepik.com/128/1074/1074173.png",
+              "freepik_id": 1074173
+            },
+            {
+              "id": "I",
+              "coord": [800, 300],
+              "name": "Cordless kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/18230/18230081.png",
+              "freepik_id": 18230081
+            }
+          ],
+          "state2": [
+            {
+              "id": "A",
+              "coord": [900, 200],
+              "name": "Cordless kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/18230/18230081.png",
+              "freepik_id": 18230081
+            },
+            {
+              "id": "B",
+              "coord": [700, 100],
+              "name": "French fries",
+              "url": "https://cdn-icons-png.freepik.com/128/15857/15857663.png",
+              "freepik_id": 15857663
+            },
+            {
+              "id": "C",
+              "coord": [900, 500],
+              "name": "Blender",
+              "url": "https://cdn-icons-png.freepik.com/128/1002/1002136.png",
+              "freepik_id": 1002136
+            },
+            {
+              "id": "D",
+              "coord": [500, 100],
+              "name": "Shower",
+              "url": "https://cdn-icons-png.freepik.com/128/3739/3739898.png",
+              "freepik_id": 3739898
+            },
+            {
+              "id": "E",
+              "coord": [800, 200],
+              "name": "Bathtub",
+              "url": "https://cdn-icons-png.freepik.com/128/8037/8037855.png",
+              "freepik_id": 8037855
+            },
+            {
+              "id": "F",
+              "coord": [600, 200],
+              "name": "Laundry",
+              "url": "https://cdn-icons-png.freepik.com/128/1074/1074173.png",
+              "freepik_id": 1074173
+            },
+            {
+              "id": "G",
+              "coord": [900, 400],
+              "name": "Speaker",
+              "url": "https://cdn-icons-png.freepik.com/128/3650/3650920.png",
+              "freepik_id": 3650920
+            },
+            {
+              "id": "H",
+              "coord": [700, 200],
+              "name": "Tissue roll",
+              "url": "https://cdn-icons-png.freepik.com/128/9157/9157050.png",
+              "freepik_id": 9157050
+            },
+            {
+              "id": "I",
+              "coord": [100, 500],
+              "name": "Coffee cup",
+              "url": "https://cdn-icons-png.freepik.com/128/7607/7607758.png",
+              "freepik_id": 7607758
+            }
+          ]
+        }
+      ],
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "feedback_say": "Your message has been relayed to the other player. ",
+      "feedback_move": "The state of your picture is updated and attached. \n",
+      "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",
+      "feedback_other_move": "The other player has made a move on their picture.\n\n$$FEEDBACK_ENDING$$",
+      "feedback_ending": "Now, please give your command.",
+      "terminate_question": "say(finished?)",
+      "terminate_answer": "say(finished!)",
+      "message_pattern": "say\\((?P<message>.+)\\)",
+      "move_pattern": "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)",
+      "background": "resources/backgrounds/kitchen.png"
+    },
+    {
+      "name": "similar_5",
+      "game_instances": [
+        {
+          "game_id": 0,
+          "state1": [
+            {
+              "id": "A",
+              "coord": [800, 200],
+              "name": "Spoons",
+              "url": "https://cdn-icons-png.freepik.com/128/3583/3583217.png",
+              "freepik_id": 3583217
+            },
+            {
+              "id": "B",
+              "coord": [600, 500],
+              "name": "Kitchen",
+              "url": "https://cdn-icons-png.freepik.com/128/11968/11968625.png",
+              "freepik_id": 11968625
+            },
+            {
+              "id": "C",
+              "coord": [900, 300],
+              "name": "Cooking utensils",
+              "url": "https://cdn-icons-png.freepik.com/128/10343/10343907.png",
+              "freepik_id": 10343907
+            },
+            {
+              "id": "D",
+              "coord": [400, 400],
+              "name": "Spatula",
+              "url": "https://cdn-icons-png.freepik.com/128/1772/1772601.png",
+              "freepik_id": 1772601
+            },
+            {
+              "id": "E",
+              "coord": [800, 100],
+              "name": "Kitchen utensil",
+              "url": "https://cdn-icons-png.freepik.com/128/10794/10794129.png",
+              "freepik_id": 10794129
+            }
+          ],
+          "state2": [
+            {
+              "id": "A",
+              "coord": [800, 500],
+              "name": "Kitchen utensil",
+              "url": "https://cdn-icons-png.freepik.com/128/10794/10794129.png",
+              "freepik_id": 10794129
+            },
+            {
+              "id": "B",
+              "coord": [900, 400],
+              "name": "Cooking utensils",
+              "url": "https://cdn-icons-png.freepik.com/128/10343/10343907.png",
+              "freepik_id": 10343907
+            },
+            {
+              "id": "C",
+              "coord": [600, 100],
+              "name": "Spatula",
+              "url": "https://cdn-icons-png.freepik.com/128/1772/1772601.png",
+              "freepik_id": 1772601
+            },
+            {
+              "id": "D",
+              "coord": [300, 200],
+              "name": "Kitchen",
+              "url": "https://cdn-icons-png.freepik.com/128/11968/11968625.png",
+              "freepik_id": 11968625
+            },
+            {
+              "id": "E",
+              "coord": [400, 200],
+              "name": "Spoons",
+              "url": "https://cdn-icons-png.freepik.com/128/3583/3583217.png",
+              "freepik_id": 3583217
+            }
+          ]
+        }
+      ],
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "feedback_say": "Your message has been relayed to the other player. ",
+      "feedback_move": "The state of your picture is updated and attached. \n",
+      "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",
+      "feedback_other_move": "The other player has made a move on their picture.\n\n$$FEEDBACK_ENDING$$",
+      "feedback_ending": "Now, please give your command.",
+      "terminate_question": "say(finished?)",
+      "terminate_answer": "say(finished!)",
+      "message_pattern": "say\\((?P<message>.+)\\)",
+      "move_pattern": "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)",
+      "background": "resources/backgrounds/kitchen.png"
+    },
+    {
+      "name": "similar_9",
+      "game_instances": [
+        {
+          "game_id": 0,
+          "state1": [
+            {
+              "id": "A",
+              "coord": [400, 300],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/11708/11708633.png",
+              "freepik_id": 11708633
+            },
+            {
+              "id": "B",
+              "coord": [100, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/10310/10310720.png",
+              "freepik_id": 10310720
+            },
+            {
+              "id": "C",
+              "coord": [400, 400],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/9457/9457038.png",
+              "freepik_id": 9457038
+            },
+            {
+              "id": "D",
+              "coord": [400, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/13316/13316966.png",
+              "freepik_id": 13316966
+            },
+            {
+              "id": "E",
+              "coord": [600, 500],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/15497/15497037.png",
+              "freepik_id": 15497037
+            },
+            {
+              "id": "F",
+              "coord": [500, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/7539/7539180.png",
+              "freepik_id": 7539180
+            },
+            {
+              "id": "G",
+              "coord": [900, 400],
+              "name": "Kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/6470/6470274.png",
+              "freepik_id": 6470274
+            },
+            {
+              "id": "H",
+              "coord": [700, 100],
+              "name": "Water boiler",
+              "url": "https://cdn-icons-png.freepik.com/128/10974/10974770.png",
+              "freepik_id": 10974770
+            },
+            {
+              "id": "I",
+              "coord": [100, 200],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/10310/10310690.png",
+              "freepik_id": 10310690
+            }
+          ],
+          "state2": [
+            {
+              "id": "A",
+              "coord": [900, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/7539/7539180.png",
+              "freepik_id": 7539180
+            },
+            {
+              "id": "B",
+              "coord": [100, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/10310/10310720.png",
+              "freepik_id": 10310720
+            },
+            {
+              "id": "C",
+              "coord": [300, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/15497/15497037.png",
+              "freepik_id": 15497037
+            },
+            {
+              "id": "D",
+              "coord": [400, 500],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/9457/9457038.png",
+              "freepik_id": 9457038
+            },
+            {
+              "id": "E",
+              "coord": [900, 500],
+              "name": "Kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/6470/6470274.png",
+              "freepik_id": 6470274
+            },
+            {
+              "id": "F",
+              "coord": [800, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/10310/10310690.png",
+              "freepik_id": 10310690
+            },
+            {
+              "id": "G",
+              "coord": [200, 100],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/13316/13316966.png",
+              "freepik_id": 13316966
+            },
+            {
+              "id": "H",
+              "coord": [100, 400],
+              "name": "Electric kettle",
+              "url": "https://cdn-icons-png.freepik.com/128/11708/11708633.png",
+              "freepik_id": 11708633
+            },
+            {
+              "id": "I",
+              "coord": [800, 200],
+              "name": "Water boiler",
+              "url": "https://cdn-icons-png.freepik.com/128/10974/10974770.png",
+              "freepik_id": 10974770
+            }
+          ]
+        }
+      ],
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "feedback_say": "Your message has been relayed to the other player. ",
+      "feedback_move": "The state of your picture is updated and attached. \n",
+      "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",
+      "feedback_other_move": "The other player has made a move on their picture.\n\n$$FEEDBACK_ENDING$$",
+      "feedback_ending": "Now, please give your command.",
+      "terminate_question": "say(finished?)",
+      "terminate_answer": "say(finished!)",
+      "message_pattern": "say\\((?P<message>.+)\\)",
+      "move_pattern": "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)",
+      "background": "resources/backgrounds/kitchen.png"
+    },
+    {
+      "name": "abstract_5",
+      "game_instances": [
+        {
+          "game_id": 0,
+          "state1": [
+            {
+              "id": "A",
+              "coord": [400, 300],
+              "name": "Sharpen",
+              "url": "https://cdn-icons-png.freepik.com/128/12126/12126687.png",
+              "freepik_id": 12126687
+            },
+            {
+              "id": "B",
+              "coord": [400, 100],
+              "name": "Scotch",
+              "url": "https://cdn-icons-png.freepik.com/128/7907/7907177.png",
+              "freepik_id": 7907177
+            },
+            {
+              "id": "C",
+              "coord": [700, 200],
+              "name": "Workflow",
+              "url": "https://cdn-icons-png.freepik.com/128/18968/18968984.png",
+              "freepik_id": 18968984
+            },
+            {
+              "id": "D",
+              "coord": [200, 200],
+              "name": "Chalk",
+              "url": "https://cdn-icons-png.freepik.com/128/3829/3829741.png",
+              "freepik_id": 3829741
+            },
+            {
+              "id": "E",
+              "coord": [800, 300],
+              "name": "Sun",
+              "url": "https://cdn-icons-png.freepik.com/128/6217/6217446.png",
+              "freepik_id": 6217446
+            }
+          ],
+          "state2": [
+            {
+              "id": "A",
+              "coord": [900, 100],
+              "name": "Sun",
+              "url": "https://cdn-icons-png.freepik.com/128/6217/6217446.png",
+              "freepik_id": 6217446
+            },
+            {
+              "id": "B",
+              "coord": [100, 500],
+              "name": "Chalk",
+              "url": "https://cdn-icons-png.freepik.com/128/3829/3829741.png",
+              "freepik_id": 3829741
+            },
+            {
+              "id": "C",
+              "coord": [700, 100],
+              "name": "Sharpen",
+              "url": "https://cdn-icons-png.freepik.com/128/12126/12126687.png",
+              "freepik_id": 12126687
+            },
+            {
+              "id": "D",
+              "coord": [300, 500],
+              "name": "Scotch",
+              "url": "https://cdn-icons-png.freepik.com/128/7907/7907177.png",
+              "freepik_id": 7907177
+            },
+            {
+              "id": "E",
+              "coord": [300, 300],
+              "name": "Workflow",
+              "url": "https://cdn-icons-png.freepik.com/128/18968/18968984.png",
+              "freepik_id": 18968984
+            }
+          ]
+        }
+      ],
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
+      "feedback_say": "Your message has been relayed to the other player. ",
+      "feedback_move": "The state of your picture is updated and attached. \n",
+      "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",
+      "feedback_other_move": "The other player has made a move on their picture.\n\n$$FEEDBACK_ENDING$$",
+      "feedback_ending": "Now, please give your command.",
+      "terminate_question": "say(finished?)",
+      "terminate_answer": "say(finished!)",
+      "message_pattern": "say\\((?P<message>.+)\\)",
+      "move_pattern": "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)",
+      "background": "resources/backgrounds/kitchen.png"
+    },
+    {
+      "name": "abstract_9",
+      "game_instances": [
+        {
+          "game_id": 0,
+          "state1": [
+            {
+              "id": "A",
+              "coord": [700, 200],
+              "name": "Enzyme",
+              "url": "https://cdn-icons-png.freepik.com/128/10283/10283255.png",
+              "freepik_id": 10283255
+            },
+            {
+              "id": "B",
+              "coord": [700, 500],
+              "name": "Key",
+              "url": "https://cdn-icons-png.freepik.com/128/7915/7915450.png",
+              "freepik_id": 7915450
+            },
+            {
+              "id": "C",
+              "coord": [500, 300],
+              "name": "Lollipop",
+              "url": "https://cdn-icons-png.freepik.com/128/2189/2189773.png",
+              "freepik_id": 2189773
+            },
+            {
+              "id": "D",
+              "coord": [800, 500],
+              "name": "Ratio",
+              "url": "https://cdn-icons-png.freepik.com/128/13105/13105869.png",
+              "freepik_id": 13105869
+            },
+            {
+              "id": "E",
+              "coord": [200, 400],
+              "name": "Wind rose",
+              "url": "https://cdn-icons-png.freepik.com/128/18966/18966585.png",
+              "freepik_id": 18966585
+            },
+            {
+              "id": "F",
+              "coord": [400, 300],
+              "name": "Sharpen",
+              "url": "https://cdn-icons-png.freepik.com/128/12126/12126687.png",
+              "freepik_id": 12126687
+            },
+            {
+              "id": "G",
+              "coord": [100, 100],
+              "name": "Menu",
+              "url": "https://cdn-icons-png.freepik.com/128/7576/7576214.png",
+              "freepik_id": 7576214
+            },
+            {
+              "id": "H",
+              "coord": [500, 100],
+              "name": "Tile",
+              "url": "https://cdn-icons-png.freepik.com/128/11857/11857931.png",
+              "freepik_id": 11857931
+            },
+            {
+              "id": "I",
+              "coord": [100, 300],
+              "name": "Hamantash",
+              "url": "https://cdn-icons-png.freepik.com/128/6357/6357693.png",
+              "freepik_id": 6357693
+            }
+          ],
+          "state2": [
+            {
+              "id": "A",
+              "coord": [600, 300],
+              "name": "Ratio",
+              "url": "https://cdn-icons-png.freepik.com/128/13105/13105869.png",
+              "freepik_id": 13105869
+            },
+            {
+              "id": "B",
+              "coord": [400, 500],
+              "name": "Menu",
+              "url": "https://cdn-icons-png.freepik.com/128/7576/7576214.png",
+              "freepik_id": 7576214
+            },
+            {
+              "id": "C",
+              "coord": [700, 300],
+              "name": "Hamantash",
+              "url": "https://cdn-icons-png.freepik.com/128/6357/6357693.png",
+              "freepik_id": 6357693
+            },
+            {
+              "id": "D",
+              "coord": [100, 100],
+              "name": "Tile",
+              "url": "https://cdn-icons-png.freepik.com/128/11857/11857931.png",
+              "freepik_id": 11857931
+            },
+            {
+              "id": "E",
+              "coord": [500, 400],
+              "name": "Key",
+              "url": "https://cdn-icons-png.freepik.com/128/7915/7915450.png",
+              "freepik_id": 7915450
+            },
+            {
+              "id": "F",
+              "coord": [800, 500],
+              "name": "Wind rose",
+              "url": "https://cdn-icons-png.freepik.com/128/18966/18966585.png",
+              "freepik_id": 18966585
+            },
+            {
+              "id": "G",
+              "coord": [400, 300],
+              "name": "Sharpen",
+              "url": "https://cdn-icons-png.freepik.com/128/12126/12126687.png",
+              "freepik_id": 12126687
+            },
+            {
+              "id": "H",
+              "coord": [300, 500],
+              "name": "Lollipop",
+              "url": "https://cdn-icons-png.freepik.com/128/2189/2189773.png",
+              "freepik_id": 2189773
+            },
+            {
+              "id": "I",
+              "coord": [800, 100],
+              "name": "Enzyme",
+              "url": "https://cdn-icons-png.freepik.com/128/10283/10283255.png",
+              "freepik_id": 10283255
+            }
+          ]
+        }
+      ],
+      "player1_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\nNow, please give your first command.",
+      "player2_initial_prompt": "Attached is an image of two parts:\n\n- On the right is a legend image of several icons, each icon has an associated ID above it.\n\n- On the left is a background image overlaid with these icons at random locations. A x-y coordinate system is on the left and bottom edge of the picture. Note the value on y-axis increases downward.\n\nYou are going to play a collaboration game with another player based on this image. The other player sees a variation of the image, where the icons are overlaid on the background image at different locations. The goal of this game is two players moving icons on their own image, such that the icons end up in the identical position.\n\n**Communication Format**\nCommunicate with each other using one of the two command formats, one command per turn:\n\n1. `say(MESSAGE)` — to send a message to the other player. I will relay the messages between the players.\n\n2. `move(ICON_ID, X_COORD, Y_COORD)` — to move an icon to a specified location with their `(X_COORD, Y_COORD)` coordinates, according to the coordinate system in the picture on the left. I will move the icons for you and give you visual feedback. Your move command, as well as the visual feedback, are not visible to the other player.\n\nStrictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.\n\n**Communication Guidelines**\n\n1. Agree on which icon to move. You cannot instruct the other player to focus on an icon with just its ID, because the the same ID might be associated with different icons for each player. Instead, describe the icon, agree on it, then formulate the `move` command with its associated ID.\n\n```\n# Wrong example\n# icon D could be different icons for you and the other player\nsay(Let's move icon D!)\n\n# Correct example\n# suppose you describe an icon with <ICON_DESCRIPTION>\nsay(Let's move the icon <ICON_DESCRIPTION>!)\n\n# If the other player agrees, move on to choose and agree on a target location\n```\n\n2. Agree on the target location. You cannot instruct the other player with coordinates. Instead, describe the target location using the background image as reference, agree on it, then formulate the `move` command with the coordinates of the target location.\n\n```\n# Wrong example\nsay(Let's move the <ICON_DESCRIPTION> icon to location (800, 100)!)\n\n# Correct example\n# suppose you describe the target location with <TARGET_LOCATION_DESCRIPTION> using objects in the background image as reference\nsay(Let's move the <ICON_DESCRIPTION> icon to <TARGET_LOCATION_DESCRIPTION>!)\n\n# If the other player agrees, \n# and if the icon that suits <ICON_DESCRIPTION> has ID <ID> for you\n# and if the location at <TARGET_LOCATION_DESCRIPTION> is at coordinates (<X>, <Y>)\n# then you send the `move` command \nmove(ID, X, Y)\n```\n\n3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.\n\n**Ending of The Game**\nTo indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.\n\nBoth players win if the game ends within 50 combined commands.\n\nYou will immediately loss the game if you:\n\n- Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.\n- Instruct the other player to move an icon using coordinates of target location.\n\n$$OTHER_PLAYER_COMMAND$$\n",
       "feedback_say": "Your message has been relayed to the other player. ",
       "feedback_move": "The state of your picture is updated and attached. \n",
       "feedback_other_say": "The other player says this message to you: \n\n```\n$$OTHER_PLAYER_SAY$$\n```\n\n$$FEEDBACK_ENDING$$",

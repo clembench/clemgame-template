@@ -119,7 +119,8 @@ class PicState:
         total_distance = 0.0
         for obj in self.state:
             for other_obj in other.state:
-                if obj['id'] == other_obj['id']:
+                # for now, icon_path is the real unique identifier 
+                if obj['icon_path'] == other_obj['icon_path']:
                     x1, y1 = obj['coord']
                     x2, y2 = other_obj['coord']
                     distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
