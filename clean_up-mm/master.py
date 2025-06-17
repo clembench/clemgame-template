@@ -151,7 +151,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             self.finished = True
             self.success = True
                 
-        # build the 1st part of feedback to current player (eg. your message has been relayed)                
+        # feedback to current player about their own command (eg. your message has been relayed)                
         self.set_context_for(player, self.experiment['feedback_say'])
 
         # prep context for the next player
@@ -171,9 +171,14 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             
             self.set_context_for(self.__other_player(), player2_init_context)
         else:
-            # build the 2nd part of feedback to the next player
+            # feedback to the other player about current player's command (eg. the other player said this to you: <response>)
             self.set_context_for(self.__other_player(), to_inject)
         
+        # logs
+        distance = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
+        self.log_to_self("log distance", f"current distance:\npairwise distance: {json.dumps(distance, indent=4)}") 
+        self.log_to_self("log distance", f"current distance:\ntotal distance: {round(sum(distance.values()), 2)}") 
+
     # TODO: enable re-prompting for move
     def __process_move(self, player: Player, response: str, init: bool = False):
         """
@@ -181,12 +186,16 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         If `init` is True, it means this is the initial call for the next player, 
         need to inject the response of the current player in the initial context for the next player.
         """
+        distance_before_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
+
         # alter the pic_state of the current player
         match = self.__match_move(response)
         obj = match.group("obj")
         x = match.group("x")
         y = match.group("y")
         player.pic_state.update(obj, int(x), int(y))
+
+        distance_after_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
 
         # build the 1st part of feedback to current player (eg. the state of your pic is changed)
         feedback_text = self.experiment['feedback_move']
@@ -216,6 +225,19 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             # build the 2nd part of feedback to the next player
             self.set_context_for(self.__other_player(), to_inject)
 
+        # logs        
+        icon_info = player.pic_state.get_element_by_id(obj)
+        if not icon_info:
+            self.log_to_self("log move", f"{player.name} attempted to move an icon that does not exist: {obj}")
+        keys_to_keep = ['name', 'freepik_id', 'id']
+        icon_info = {k: v for k, v in icon_info.items() if k in keys_to_keep}
+        self.log_to_self("log move", f"{player.name} attempted to move the icon {icon_info}")
+
+        self.log_to_self("log distance", f"before move:\npairwise distance: {json.dumps(distance_before_move, indent=4)}") 
+        self.log_to_self("log distance", f"before move:\ntotal distance: {round(sum(distance_before_move.values()), 2)}") 
+
+        self.log_to_self("log distance", f"after move:\npairwise distance: {json.dumps(distance_after_move, indent=4)}") 
+        self.log_to_self("log distance", f"after move:\ntotal distance: {round(sum(distance_after_move.values()), 2)}") 
 
     def _advance_game(self, player: Player, parsed_response: str):
         """
@@ -231,8 +253,8 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             # - build (part of) feedback to current player;
             #   eg. "Your message has been relayed to the other player"
             #   eg. "The state of your pic has been changed"
-            # - build (part of) feedback to the othe palyer: 
-            #   eg. "The other player said: <parsed_response>"
+            # - build (part of) feedback to the other player: 
+            #   eg. "The other player said this to you: <parsed_response>"
             #   eg. "The other player moved an icon on their picture"
 
 

@@ -17,14 +17,14 @@ class PicState:
         """
         self.background_path = background_path
         self.state = state
+
+        # self.state: [ { id, coord, name, url, freepik_id, img }, ... ]
         for entry in self.state: 
             response = requests.get(entry['url'])
             response.raise_for_status()
             # a PIL.Image.Image object
             # use case: ax.imshow(img)
             entry['img'] = Image.open(BytesIO(response.content)) 
-
-        # self.state: [ { id, coord, name, url, freepik_id, img }, ... ]
 
         # Load background image and get dimensions
         self.bg_img = Image.open(self.background_path)
@@ -122,6 +122,48 @@ class PicState:
     def update_and_draw(self, icon_id, X, Y): 
         self.update(icon_id, X, Y)
         return self.draw()
+
+    def get_element_by_id(self, icon_id):
+        """
+        Returns the element with the specified ID.
+        """
+        for obj in self.state:
+            if obj['id'] == icon_id:
+                return obj
+        return None
+
+    def _compute_euclidean_distance(self, coord1, coord2):
+        """
+        Computes the Euclidean distance between two coordinates.
+        """
+        x1, y1 = coord1
+        x2, y2 = coord2
+        return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+    
+    def get_pairwise_distance(self, other, toRound=False): 
+        """
+        Compares two PicState instances and returns a dictionary of pairwise distances
+        between the identical objects (icons with the same freepik_id).
+
+        Returns:
+            distances: { freepik_id: distance, ... }
+            where distance is the Euclidean distance between the coordinates of the objects.
+        """
+        if not isinstance(other, PicState):
+            raise ValueError("Comparison is only supported between two PicState instances")
+        
+        distances = {}
+        for obj in self.state:
+            # freepik_id is the real unique identifier 
+            target_freepik_id = obj['freepik_id']
+            for other_obj in other.state:
+                if other_obj['freepik_id'] == target_freepik_id:
+                    dist = self._compute_euclidean_distance(obj['coord'], other_obj['coord'])
+                    if toRound: # for display as log in transcript
+                        dist = round(dist, 2)  
+                    distances[obj['freepik_id']] = dist
+        return dict(sorted(distances.items()))
+
     
     def distance_sum(self, other):
         """
@@ -130,17 +172,10 @@ class PicState:
         """
         if not isinstance(other, PicState):
             raise ValueError("Comparison is only supported between two PicState instances")
-        
-        total_distance = 0.0
-        for obj in self.state:
-            for other_obj in other.state:
-                # freepik_id is the real unique identifier 
-                if obj['freepik_id'] == other_obj['freepik_id']:
-                    x1, y1 = obj['coord']
-                    x2, y2 = other_obj['coord']
-                    distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
-                    total_distance += distance
-        return total_distance
+        distances = self.get_pairwise_distance(other)
+        if not distances:
+            return 0.0
+        return sum(distances.values())
     
     def worst_distance_sum(self):
         """
