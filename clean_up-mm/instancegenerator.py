@@ -31,7 +31,7 @@ from clemcore.clemgame import GameInstanceGenerator
 """
 # number of instances per experiment
 # N_INSTANCES = 10 
-N_INSTANCES = 1
+N_INSTANCES = 3
 # number of icons per instance
 ICON_NUM_OPTIONS = [5, 9]
 # configurations for each icon type

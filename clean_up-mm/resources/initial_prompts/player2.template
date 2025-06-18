@@ -51,7 +51,7 @@ move(ID, X, Y)
 3. In case after moving, the icon is still not in the desired location, inform the other player and send a `move` command again next turn.
 
 **Ending of The Game**
-To indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end.
+To indicate you suspect the game is finished, use `say(finished?)` command. If the other player agrees, they reply with `say(finished!)`, and the game will end. Before you initiate or reply the finishing command, make sure you and the other player have moved all the icons. 
 
 Both players win if the game ends within 50 combined commands.
 

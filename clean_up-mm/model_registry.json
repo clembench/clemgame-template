@@ -13,8 +13,125 @@
     }
   },
   {
+    "model_name": "mistral-small-3.1-24b",
+    "model_id": "mistralai/mistral-small-3.1-24b-instruct:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
     "model_name": "gemma-3-27b",
     "model_id": "google/gemma-3-27b-it:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "internvl3-14b",
+    "model_id": "opengvlab/internvl3-14b:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "gemma-3-12b",
+    "model_id": "google/gemma-3-12b-it:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "qwen-2.5-vl-7b",
+    "model_id": "qwen/qwen-2.5-vl-7b-instruct:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "qwen2.5-vl-3b",
+    "model_id": "qwen/qwen2.5-vl-3b-instruct:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "internvl3-2b",
+    "model_id": "opengvlab/internvl3-2b:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "llama-4-scout",
+    "model_id": "meta-llama/llama-4-scout:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "llama-4-maverick",
+    "model_id": "meta-llama/llama-4-maverick:free",
+    "backend": "openai_compatible",
+    "model_config": {
+      "multimodality": {
+        "single_image": true,
+        "multiple_images": true,
+        "audio": false,
+        "video": false
+      }
+    }
+  },
+  {
+    "model_name": "llama-3.2-11b",
+    "model_id": "meta-llama/llama-3.2-11b-vision-instruct:free",
     "backend": "openai_compatible",
     "model_config": {
       "multimodality": {

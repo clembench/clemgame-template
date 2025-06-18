@@ -55,7 +55,6 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         # Temporary: bypass the template loaded by `instancegenerator.py` 
         # in case I want to change the prompt without affecting the instance state
         player1_init_text = self.load_template("resources/initial_prompts/player1")
-        # player1_init_text = self.experiment['player1_initial_prompt']
         player1_init_image = self.player1.pic_state.draw()
         player1_init_context = self.__prep_text_and_image_prompt(player1_init_text, 
                                                                 player1_init_image, 
@@ -67,7 +66,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         # is it a soft version of system message (role is still 'user'), can we set system message here?         
         self.add_player(self.player1, initial_context=player1_init_context)
         self.add_player(self.player2)
-        
+
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.abort = False      # True if game is terminated because of rule violation or parse error        
@@ -150,9 +149,13 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         if response == self.experiment['terminate_answer'] and self.finished:
             self.finished = True
             self.success = True
+
+            distances = self._compute_episode_score()
+            self.log_to_self("log final distance", f"total distance: { round(distances['distance_sum'], 2) }") 
+            self.log_to_self("log final distance", f"distance score: { round(distances['distance_score'], 2) }") 
                 
         # feedback to current player about their own command (eg. your message has been relayed)                
-        self.set_context_for(player, self.experiment['feedback_say'])
+        player._messages.append(dict(role='user', content=self.experiment['feedback_say']))
 
         # prep context for the next player
         to_inject = self.experiment['feedback_other_say'].replace("$$OTHER_PLAYER_SAY$$", response).replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
@@ -174,10 +177,10 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             # feedback to the other player about current player's command (eg. the other player said this to you: <response>)
             self.set_context_for(self.__other_player(), to_inject)
         
-        # logs
-        distance = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
-        self.log_to_self("log distance", f"current distance:\npairwise distance: {json.dumps(distance, indent=4)}") 
-        self.log_to_self("log distance", f"current distance:\ntotal distance: {round(sum(distance.values()), 2)}") 
+        # # logs
+        # distance = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
+        # self.log_to_self("log distance", f"current distance:\npairwise distance: {json.dumps(distance, indent=4)}") 
+        # self.log_to_self("log distance", f"current distance:\ntotal distance: {round(sum(distance.values()), 2)}") 
 
     # TODO: enable re-prompting for move
     def __process_move(self, player: Player, response: str, init: bool = False):
@@ -197,13 +200,16 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
         distance_after_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
 
-        # build the 1st part of feedback to current player (eg. the state of your pic is changed)
+        # build the 1st part of feedback to current player (eg. the state of your pic is changed and attached)
         feedback_text = self.experiment['feedback_move']
         feedback_image = player.pic_state.draw()
-        context = self.__prep_text_and_image_prompt(feedback_text, 
+        content = self.__prep_text_and_image_prompt(feedback_text, 
                                                     feedback_image, 
                                                     content_only=True)   
-        self.set_context_for(player, context)
+        
+        # adding visual feedback lead to this error, I doubt input token overflow
+        # Error code: 400 - {'error': {'message': 'Provider returned error', 'code': 400, 'metadata': {'raw': '{"error":{"code":"invalid_parameter_error","param":null,"message":"<400> InternalError.Algo.InvalidParameter: Range of input length should be [1, 129024]","type":"invalid_request_error"},"id":"chatcmpl-262914be-bc46-9270-9a8c-9940431806a3","request_id":"262914be-bc46-9270-9a8c-9940431806a3"}', 'provider_name': 'Alibaba'}}, 'user_id': 'user_2x4zp7KKD00ihTJC2Ox7pxsiwT2'}
+        # player._messages.append(dict(role='user', content=content))
         
         # prep context for the next player
         to_inject = self.experiment['feedback_other_move'].replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
@@ -233,8 +239,9 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         icon_info = {k: v for k, v in icon_info.items() if k in keys_to_keep}
         self.log_to_self("log move", f"{player.name} attempted to move the icon {icon_info}")
 
-        self.log_to_self("log distance", f"before move:\npairwise distance: {json.dumps(distance_before_move, indent=4)}") 
-        self.log_to_self("log distance", f"before move:\ntotal distance: {round(sum(distance_before_move.values()), 2)}") 
+        self.log_to_self("log move", content)
+        # self.log_to_self("log distance", f"before move:\npairwise distance: {json.dumps(distance_before_move, indent=4)}") 
+        # self.log_to_self("log distance", f"before move:\ntotal distance: {round(sum(distance_before_move.values()), 2)}") 
 
         self.log_to_self("log distance", f"after move:\npairwise distance: {json.dumps(distance_after_move, indent=4)}") 
         self.log_to_self("log distance", f"after move:\ntotal distance: {round(sum(distance_after_move.values()), 2)}") 
@@ -293,13 +300,22 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
     def compute_turn_score(self):
         return 1 if self.success else 0
 
-    def compute_episode_score(self):
+    def _compute_episode_score(self):
+        if self.abort:
+            return {"distance_sum": float('inf'), "distance_score": 0}
+
         p1 = self.player1.pic_state
         p2 = self.player2.pic_state
         distance_sum = p1.distance_sum(p2)
         distance_score = p1.distance_score(p2)
-        self.log_key('distance_sum', distance_sum)
-        self.log_key('distance_score', distance_score)
+
+        return {"distance_sum": distance_sum, "distance_score": distance_score}
+
+        
+    def compute_episode_score(self):
+        scores = self._compute_episode_score()
+        self.log_key('distance_sum', scores['distance_sum'])
+        self.log_key('distance_score', scores['distance_score'])
 
     def _on_after_game(self):
         self.log_key(METRIC_ABORTED, int(self.abort))
