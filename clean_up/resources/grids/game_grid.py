@@ -5,6 +5,8 @@ from string import Template
 EMPTY_SYMB = "◌"
 TOTAL_DISTANCE = "Total Distance"
 DISTANCE_SCORE = "Distance Score"
+DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
+EXPECTED_DISTANCE_SCORE = "Expected Distance Score"
 
 move_messages = {}
 with open("resources/grids/move_messages.json", "r") as f:
@@ -81,6 +83,8 @@ class GameGrid:
         """
         if not show_coords:
             coords = self.show_coords
+        else:
+            coords = show_coords
         i = -1
         if empty:
             i = 0
@@ -236,6 +240,16 @@ class GameGrid:
         max_distance = ((self.width - 1) ** 2 + (self.height - 1) ** 2) ** 0.5
         return max_distance * len(self.objects)
     
+    def expected_total_distance(self):
+        """
+        Returns the expected total distance for a given number of objects.
+        The formula is based on the average distance between objects in a grid.
+        """
+        avg_x_dist = (self.width ** 2 - 1) / (3 * self.width)
+        avg_y_dist = (self.height ** 2 - 1) / (3 * self.height)
+        avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
+        return avg_dist * self.object_set().__len__()
+    
     def distance_score(self, other):
         """
         Returns a score based on the distance sum compared to the worst case scenario.
@@ -249,7 +263,7 @@ class GameGrid:
         worst_case = self.worst_distance_sum()
         return 1 - (distance_sum / worst_case)
     
-    def get_scores(self, other):
+    def get_scores(self, other, initial_distance: float = None):
         """
         Returns a dictionary with the distance sum and distance score compared to the worst case scenario.
         """
@@ -257,16 +271,21 @@ class GameGrid:
             raise ValueError("Comparison is only supported between two GameGrid instances")
         if not self.object_set() == other.object_set():
             raise ValueError("Grids must have the same objects for comparison")
+        if not initial_distance:
+            raise ValueError("Initial distance must be provided for score calculation")
         
         distance_sum = self.distance_sum(other)
         worst_case = self.worst_distance_sum()
-        distance_score = 1 - (distance_sum / worst_case)
+        old_distance_score = 1 - (distance_sum / worst_case)
+        expected_distance = self.expected_total_distance()
+        expected_distance_score = max(0, 1 - (distance_sum / expected_distance))
+        distance_reduction_score = max(0, 1 - (distance_sum / initial_distance))
+        distance_score = (expected_distance_score + distance_reduction_score) / 2
         
         return {
             TOTAL_DISTANCE: distance_sum,
+            "old_distance_score": old_distance_score,
+            EXPECTED_DISTANCE_SCORE: expected_distance_score,
+            DISTANCE_REDUCTION_SCORE: distance_reduction_score,
             DISTANCE_SCORE: distance_score
         }
-
-if __name__ == "__main__":
-    grd = GameGrid.from_json('resources/grids/gs11x11_b7.json')
-    print(grd.__str__(coords=True))

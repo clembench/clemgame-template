@@ -20,25 +20,50 @@ logger = logging.getLogger(__name__)
 # Seed for reproducibility
 random.seed(73128361)
 
-N_INSTANCES = 1
+N_INSTANCES = 2
 LANGUAGE = 'en'
 
 experiments = [
+    # {
+    #     'name': 'gs5x5_obj3',
+    #     'grid_file': 'resources/grids/gs5x5_b2.json',
+    #     'objects': 'CLP'
+    # },
     {
-        'name': 'gs11x11_obj5',
-        'grid_file': 'resources/grids/gs11x11_b7.json',
-        'objects': 'CHITW'
+        'name': 'gs7x7_obj3',
+        'grid_file': 'resources/grids/gs7x7_b2.json',
+        'objects': 'CLP'
     },
-    {
-        'name': 'gs11x11_obj7',
-        'grid_file': 'resources/grids/gs11x11_b7.json',
-        'objects': 'POTSDAM'
-    },
-    {
-        'name': 'gs11x11_obj9',
-        'grid_file': 'resources/grids/gs11x11_b7.json',
-        'objects': 'MAGISOULE'
-    },
+    # {
+    #     'name': 'gs9x9_obj3',
+    #     'grid_file': 'resources/grids/gs9x9_b3.json',
+    #     'objects': 'CLP'
+    # },
+    # {
+    #     'name': 'gs9x9_obj4',
+    #     'grid_file': 'resources/grids/gs9x9_b3.json',
+    #     'objects': 'DUMB'
+    # },
+    # {
+    #     'name': 'gs11x11_obj3',
+    #     'grid_file': 'resources/grids/gs11x11_b7.json',
+    #     'objects': 'CLP'
+    # },
+    # {
+    #     'name': 'gs11x11_obj5',
+    #     'grid_file': 'resources/grids/gs11x11_b7.json',
+    #     'objects': 'CHITW'
+    # },
+    # {
+    #     'name': 'gs11x11_obj7',
+    #     'grid_file': 'resources/grids/gs11x11_b7.json',
+    #     'objects': 'POTSDAM'
+    # },
+    # {
+    #     'name': 'gs11x11_obj9',
+    #     'grid_file': 'resources/grids/gs11x11_b7.json',
+    #     'objects': 'MAGISOULE'
+    # },
     # {
     #     'name': 'gs11x16_obj7',
     #     'grid_file': 'resources/grids/gs11x16_b10.json',
@@ -69,6 +94,11 @@ experiments = [
     #     'grid_file': 'resources/grids/gs11x21_b15.json',
     #     'objects': 'ABCDEFGHIJKLM'
     # }
+    {
+        'name': 'gs11x21_obj3',
+        'grid_file': 'resources/grids/gs11x21_b15.json',
+        'objects': 'CLP'
+    }
 ]
 
 class CleanUpInstanceGenerator(GameInstanceGenerator):
@@ -84,7 +114,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 objects = experiment_conf['objects']
                 # Allow one penalty per object per player
                 max_penalties = len(objects) * 2
-                max_rounds = len(objects) * 3
+                max_rounds = len(objects) * 4
                 background = grid1.__str__(empty=True, show_coords=False)
                 grid1.place_objects(objects)
                 grid2.place_objects(objects)
@@ -93,6 +123,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['language'] = LANGUAGE
                 game_instance['width'] = width
                 game_instance['height'] = height
+                game_instance['lenient'] = True
                 game_instance['max_penalties'] = max_penalties
                 game_instance['max_rounds'] = max_rounds
                 game_instance['show_coords'] = show_coords
@@ -109,7 +140,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['invalid_response'] = self.load_template('resources/intermittent_prompts/invalid_response')
                 game_instance['penalty_message'] = self.load_template('resources/intermittent_prompts/penalty_message')
                 game_instance['penalty_counter'] = self.load_template('resources/intermittent_prompts/penalty_counter')
-                game_instance['move_pattern'] = '(?P<head>.*)move\((?P<obj>[A-Z]), ?(?P<x>\d+), ?(?P<y>\d+)\)(?P<tail>.*)'
+                game_instance['move_pattern'] = '(?P<head>.*)move\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)'
                 game_instance['message_pattern'] = '(?P<head>.*)say\((?P<message>[^)]+)\)(?P<tail>.*)'
                 # game_instance['message_pattern'] = '^say\((?P<message>[^)]+)\)$'
                 # game_instance['terminate_question'] ='^say(finished?)$'
@@ -123,8 +154,8 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                                             '\bfifth\b', '\bsixth\b', '\bseventh\b', '\beighth\b', '\bninth\b',
                                             '\btenth\b', '\beleventh\b', '\btwelfth\b', '\bthirteenth\b'
                                             ]
-                game_instance['lenient'] = True
                 # TODO: how to prohibit numbers in different languages?
+                game_instance['parse_errors'] = self.load_json('resources/intermittent_prompts/parse_errors.json')[LANGUAGE]
 
     def initial_prompt(self, grid: GameGrid, max_penalties: int = 10) -> str:
         """
@@ -132,7 +163,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
         :param grid: The game grid
         :return: The initial prompt string
         """
-        initial_prompt = Template(self.load_template('resources/initial_prompts/initial_prompt_lenient'))
+        initial_prompt = Template(self.load_template('resources/initial_prompts/initial_prompt_dumb'))
         return initial_prompt.substitute(
             grid=str(grid),
             objects=grid.object_string(),

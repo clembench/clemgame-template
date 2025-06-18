@@ -1,0 +1,8 @@
+{
+    "en": {
+        "head_tail": "Your message must not contain anything before or after the command!",
+        "several_commands": "Your message contains more than one command!",
+        "restriction": "Your message contains restricted content!",
+        "invalid_format": "Your message is not in the expected format!"
+    }
+}

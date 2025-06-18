@@ -1,4 +1,4 @@
-Penalty: Your response is invalid! Make sure that 
+Penalty: $reason Make sure that 
 
 * messages to the other player do not contain the words 'row' or 'column', or any numbers or coordinates!
-* your response only contains `say(MESSAGE)` or `move(ID, X, Y)`, and nothing else! Do not use any formatting, comments, or reasoning!
+* your response only contains either `say(MESSAGE)` or `move(ID, X, Y)`, and nothing else! Do not use any formatting, comments, or reasoning!

@@ -7,8 +7,8 @@ import re
 import time
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
-    GameError, ParseError, RuleViolationError
+from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
+from clemcore.clemgame.master import ProtocolError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
     # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
@@ -24,8 +24,12 @@ class Cleaner(Player):
             "move(C,1,1)",
             "say(Let's move C to the top left corner.)",
             "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
-            "Let's gooo! `say(You are the best cleaner ever!)`"
-            ] # , "say(Move C to (1, 1).)",]
+            "Let's gooo! `say(You are the best cleaner ever!)`",
+            "move(C, 1, 1",
+            "say(Move C to (1, 1).)",
+            "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
+            "haha, I love cleaning!",
+            ]
         self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
@@ -51,6 +55,10 @@ class CleanUpMaster(DialogueGameMaster):
         self.player_2.grid.set_objects(self.game_instance['state2'])
         self.player_2.grid.show_coords = self.game_instance['show_coords']
 
+        self.initial_grid_string = "Player 1 grid:\n```\n" + self.player_1.grid.__str__(show_coords=self.game_instance['show_coords']) + "```\nPlayer 2 grid:\n```\n" + self.player_2.grid.__str__(show_coords=self.game_instance['show_coords']) + "```"
+
+        self.initial_distance = self.player_1.grid.distance_sum(self.player_2.grid)
+
         self.add_player(self.player_1, initial_context=self.game_instance['p1_initial_prompt'])
         self.add_player(self.player_2)
 
@@ -70,13 +78,6 @@ class CleanUpMaster(DialogueGameMaster):
         other_player_idx = (self._current_player_idx + 1) % len(self.players_by_names)
         return self.get_players()[other_player_idx]
 
-    # def _on_before_round(self):
-    #     """
-    #     Called before each round starts.
-    #     """
-    #     logger.info(f"_on_before_round, resetting pass_turn to True")
-    #     self.pass_turn = True
-
     def _check_head_tail(self, match: re.Match) -> bool:
         """
         Check if the head and tail of the match are empty.
@@ -85,52 +86,76 @@ class CleanUpMaster(DialogueGameMaster):
             if match.group('head') != '' or match.group('tail') != '':
                 self.terminate = True
                 self.aborted = True
-                self.log_to_self('parse_error', f"Invalid move format: {match.group(0)}")
-                raise ParseError(f"Invalid move format: {match.group(0)}")
+                self.log_to_self('parse_error', "Invalid format: head or tail is not empty")
+                raise ParseError(reason=self.game_instance["parse_errors"]["head_tail"], response=match.group(0))
 
     def _parse_response(self, player: Player, response: str) -> str:
         self.log_to_self('player_response', response)
         # logger.info(f"Parsing response of player {player.name}, current round: {self.current_round}")
         # TODO: for now, we will just remove backticks and newlines
         response = response.replace('`', '').replace('\n', ' ').strip()
-        match = re.compile(self.game_instance['move_pattern']).match(response)
-        if match:
-            self._check_head_tail(match)
+        move_match = re.compile(self.game_instance['move_pattern']).match(response)
+        message_match = re.compile(self.game_instance['message_pattern']).match(response)
+        if sum([1 for m in [move_match, message_match] if m is not None]) > 1:
+            self.log_to_self('parse_error', f"Invalid response format: {response}")
+            logger.warning(f"Response '{response}' contains several commands.")
+            raise ParseError(reason=self.game_instance["parse_errors"]["several_commands"], response=response) #, info="Response matches both move and message patterns, which is invalid.")
+        if move_match:
+            self._check_head_tail(move_match)
+            return response
+        if message_match:
+            self._check_head_tail(message_match)
+            if message_match.group('message') == self.game_instance['terminate_question']:
+                self.finished = True
+            elif message_match.group('message') == self.game_instance['terminate_answer'] and self.finished:
+                self.success = True
+                self.terminate = True
+                self.log_to_self('success', 'true')
+            else:
+                for restricted in self.game_instance['restricted']:
+                    restricted_match = re.compile(restricted).search(message_match.group('message'))
+                    if restricted_match:
+                        self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
+                        logger.warning(f"Response '{response}' violates restriction: {restricted}")
+                        raise ParseError(reason=self.game_instance["parse_errors"]["restriction"], response=response)
             return response
         else:
-            match = re.compile(self.game_instance['message_pattern']).match(response)
-            if match:
-                self._check_head_tail(match)
-                if match.group('message') == self.game_instance['terminate_question']:
-                    self.finished = True
-                elif match.group('message') == self.game_instance['terminate_answer'] and self.finished:
-                    self.success = True
-                    self.terminate = True
-                    self.log_to_self('success', 'true')
-                else:
-                    for restricted in self.game_instance['restricted']:
-                        restricted_match = re.compile(restricted).search(match.group('message'))
-                        if restricted_match:
-                            self.terminate = True
-                            self.aborted = True
-                            self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
-                            logger.warning(f"Response '{response}' violates restriction: {restricted}")
-                return response
-            else:
-                self.terminate = True
-                self.aborted = True
-                self.log_to_self('parse_error', f"Invalid response format")
-                raise ParseError(f"Invalid response format: {response}")
+            self.log_to_self('parse_error', f"Invalid response format")
+            raise ParseError(reason=self.game_instance["parse_errors"]["invalid_format"], response=response) #, info="Response does not match any expected pattern.")
 
-    # def _on_parse_error(self, error: GameError):
-    #     self.success = False
+    def _on_parse_error(self, error: GameError):
+        # TODO: add violated request count metric
+        if self.game_instance['lenient']:
+            # In lenient mode, we just log the error and continue
+            self.pass_turn = False
+            self.penalties += 1
+            message = self._reprompt_message(error.reason)
+            self.set_context_for(self._current_player, message)
+        else:
+            # In strict mode, we terminate the game
+            self.terminate = True
+            self.aborted = True
+
+    def _reprompt_message(self, reason) -> str:
+        message = Template(self.game_instance['invalid_response']).substitute(reason=reason)
+        message += '\n' + Template(self.game_instance['penalty_message']).substitute(penalty=self.penalties, max_penalties=self.max_penalties)
+        return message
 
     def _should_pass_turn(self) -> bool:
         """
         Check if the player should pass their turn.
         """
-        time.sleep(2)
-        return self.pass_turn         
+        time.sleep(3)
+        return self.pass_turn
+
+    def _start_next_round(self) -> bool:
+        """
+        :return: True, when it's the first player's turn to start a new round
+        """
+        if self.pass_turn:
+            return self._current_player_idx == 0     
+        else:
+            return False
 
     def _advance_game(self, player: Player, parsed_response: str):
         # logger.info(f"Messages for {player.name}:\n")
@@ -139,7 +164,7 @@ class CleanUpMaster(DialogueGameMaster):
         if not parsed_response:
             raise RuleViolationError
         # self.success = True
-        # logger.info(f"Player {player.name}. self.pass_turn: {self.pass_turn}, parsed_response: {parsed_response}")
+        # logger.info(f"Player {player.name}, parsed_response:\n{parsed_response}")
         match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
         if match:
             obj = match.group('obj')
@@ -181,8 +206,6 @@ class CleanUpMaster(DialogueGameMaster):
                     next_player_prompt = self._penalty_counter_message()
                     next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)
                     self.set_context_for(self._other_player(), next_player_prompt)
-            else:
-                raise ParseError(f"Invalid response format: {parsed_response}")
             
     def _penalty_counter_message(self) -> str:
         """
@@ -201,12 +224,15 @@ class CleanUpMaster(DialogueGameMaster):
         """
         if self.penalties > self.max_penalties:
             self.log_to_self('end', 'Maximum number of penalties exceeded')
+            self.aborted = True
             return False
         if self.terminate:
             return False
         if self.current_round >= self.max_rounds:  # Arbitrary limit for rounds
             logger.info("Maximum number of rounds reached, ending game.")
             self.log_to_self('end', 'Maximum number of rounds reached')
+            # Reaching the maximum number of rounds is considered a success
+            self.success = True
             return False
         return True
 
@@ -223,15 +249,28 @@ class CleanUpMaster(DialogueGameMaster):
             self.log_key('success', 'true')
         else:
             self.log_key('success', 'false')
-        grid_scores = self.player_1.grid.get_scores(self.player_2.grid)
+        grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
+        self.log_key('Initial Distance', self.initial_distance)
+        score_string = ""
         for key, value in grid_scores.items():
             self.log_key(key, value)
+            score_string += f"* {key}: {float(value):.2f}\n"
 
         self.log_key('Penalties', self.penalties)
         self.log_key('Object Count', len(self.player_1.grid.objects))
         self.log_key(METRIC_ABORTED, int(self.aborted))
         self.log_key(METRIC_SUCCESS, int(self.success))
-        self.log_key(METRIC_LOSE, int(not self.success))
+        if self.initial_distance < grid_scores['Total Distance']:
+            self.log_key(METRIC_LOSE, 1)
+        else:
+            self.log_key(METRIC_LOSE, 0)
+
+        logger.info(grid_scores)
+
+        self.log_to_self('initial grids', f"Initial grids:\n{self.initial_grid_string}")
+        # Log the grids to show up in the transcript
+        self.log_to_self('grids', f"Player 1 grid:\n```\n{self.player_1.grid.__str__(show_coords=self.game_instance['show_coords'])}\n```\nPlayer 2 grid:\n```\n{self.player_2.grid.__str__(show_coords=self.game_instance['show_coords'])}```")
+        self.log_to_self('game_finished', f"* success: {self.success}\n* penalties: {self.penalties}\n* rounds: {self.current_round}\n* initial distance: {self.initial_distance:.2f}\n{score_string}* object count: {len(self.player_1.grid.objects)}\n* aborted: {self.aborted}\n* lose: {not self.success}")
 
 class CleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
@@ -248,7 +287,7 @@ class CleanUpScorer(GameScorer):
         """ Compute the episode score based on the interactions """
         turn_count = len(episode_interactions['turns'])
         penalties = episode_interactions['Penalties']
-        obj_count = episode_interactions['Object Count']
+        # obj_count = episode_interactions['Object Count']
 
         self.log_episode_score("Penalties", penalties)
         self.log_episode_score("Turn Count", turn_count)
@@ -258,20 +297,20 @@ class CleanUpScorer(GameScorer):
         distance_score = episode_interactions[DISTANCE_SCORE]
         self.log_episode_score(DISTANCE_SCORE, distance_score)
         # we allow two turns per object, after that every turn adds a penalty
-        turn_count = max(turn_count - obj_count * 2, 0)
-        penalties += turn_count
+        # turn_count = max(turn_count - obj_count * 2, 0)
+        # penalties += turn_count
         if penalties > 0:
             penalty_score = 1 / penalties
         else:
             penalty_score = 1
         self.log_episode_score("Penalty Score", penalty_score)
         # The final score is a product of the distance score and the penalty score
-        logger.info(f"Game: {episode_interactions['meta']['game_name']}, experiment: {episode_interactions['meta']['experiment_name']}, game_id: {episode_interactions['meta']['game_id']}, dialogue_pair: {episode_interactions['meta']['dialogue_pair']}")
-        logger.info(f'{METRIC_SUCCESS}: {episode_interactions[METRIC_SUCCESS]}, {METRIC_ABORTED}: {episode_interactions[METRIC_ABORTED]}')
+        # logger.info(f"Game: {episode_interactions['meta']['game_name']}, experiment: {episode_interactions['meta']['experiment_name']}, game_id: {episode_interactions['meta']['game_id']}, dialogue_pair: {episode_interactions['meta']['dialogue_pair']}")
+        # logger.info(f'{METRIC_SUCCESS}: {episode_interactions[METRIC_SUCCESS]}, {METRIC_ABORTED}: {episode_interactions[METRIC_ABORTED]}')
         if episode_interactions[METRIC_SUCCESS]:
             logger.info(f'success, logging Main Score as {distance_score * penalty_score}')
             self.log_episode_score(BENCH_SCORE, distance_score * penalty_score)
-        elif episode_interactions[METRIC_ABORTED]:
+        else:
             logger.info(f'aborted, logging Main Score as np.nan')
             self.log_episode_score(BENCH_SCORE, np.nan)
     # def log_main_score(self, episode_interactions: Dict):

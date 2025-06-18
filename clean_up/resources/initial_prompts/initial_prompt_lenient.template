@@ -33,4 +33,4 @@ $grid```
 
 * Each message must only contain exactly one command of the type `say(MESSAGE)` or `move(ID, X, Y)`, and nothing else!
 * You must not use the words 'row' or 'column', or any numbers or coordinates in messages to the other player
-* The other player can't see your grid, and can only read messages that you send with `say(MESSAGE)` command!
+* The other player can't see your grid, and can only read messages that you send with `say(MESSAGE)`
