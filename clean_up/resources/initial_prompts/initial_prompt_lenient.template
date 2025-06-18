@@ -11,10 +11,10 @@ Remember that you can only see your own grid! You have to communicate with the o
     * Send a message to the other player: `say(<message>)`
     * Move an object to a new position: `move(<object>,<x>,<y>)`
 * You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol '$empty_symbol'.
-* You must not use the words 'row', 'column', coordinates, or numbers of any form when communicating with the other player. If you do, you lose the game immediately. Instead, use the shapes you see in the grid as reference.
+* You must not use the words 'row', 'column', coordinates, or numbers of any form when communicating with the other player. If you do, you get a penalty. Instead, use the shapes you see in the grid as reference.
 * If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be penalized and can try again.
 * Your messages must only contain valid commands and nothing else, or you both get a penalty.
-* If both players accumulate $max_penalties penalties, the game ends.
+* If both players accumulate more than $max_penalties penalties, the game ends.
 
 **End of Game:**
 If you think you reached the goal, you can ask the other player to finish the game by sending `say(finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.
@@ -30,8 +30,7 @@ $grid```
 
 
 **IMPORTANT:**
-You will immediately loss the game if you:
 
-* Send any analysis, reasoning, or any other formatting apart from `say(MESSAGE)` or `move(ID, X, Y)`.
-* Use the words 'row' or 'column', or any numbers or coordinates in a message to the other player.
-
+* Each message must only contain exactly one command of the type `say(MESSAGE)` or `move(ID, X, Y)`, and nothing else!
+* You must not use the words 'row' or 'column', or any numbers or coordinates in messages to the other player
+* The other player can't see your grid, and can only read messages that you send with `say(MESSAGE)` command!

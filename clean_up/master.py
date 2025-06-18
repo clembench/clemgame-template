@@ -4,6 +4,7 @@ import logging
 import numpy as np
 from string import Template
 import re
+import time
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, \
@@ -19,7 +20,12 @@ logger = logging.getLogger(__name__)
 class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
-        self._custom_responses = ["move(C,1,1)", "say(Let's move C to the top left corner.)"] # , "say(Move C to (1, 1).)",]
+        self._custom_responses = [
+            "move(C,1,1)",
+            "say(Let's move C to the top left corner.)",
+            "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
+            "Let's gooo! `say(You are the best cleaner ever!)`"
+            ] # , "say(Move C to (1, 1).)",]
         self.grid = None  # This will be set in the game master
 
     def _custom_response(self, messages):
@@ -64,6 +70,24 @@ class CleanUpMaster(DialogueGameMaster):
         other_player_idx = (self._current_player_idx + 1) % len(self.players_by_names)
         return self.get_players()[other_player_idx]
 
+    # def _on_before_round(self):
+    #     """
+    #     Called before each round starts.
+    #     """
+    #     logger.info(f"_on_before_round, resetting pass_turn to True")
+    #     self.pass_turn = True
+
+    def _check_head_tail(self, match: re.Match) -> bool:
+        """
+        Check if the head and tail of the match are empty.
+        """
+        if not self.game_instance['lenient']:
+            if match.group('head') != '' or match.group('tail') != '':
+                self.terminate = True
+                self.aborted = True
+                self.log_to_self('parse_error', f"Invalid move format: {match.group(0)}")
+                raise ParseError(f"Invalid move format: {match.group(0)}")
+
     def _parse_response(self, player: Player, response: str) -> str:
         self.log_to_self('player_response', response)
         # logger.info(f"Parsing response of player {player.name}, current round: {self.current_round}")
@@ -71,20 +95,22 @@ class CleanUpMaster(DialogueGameMaster):
         response = response.replace('`', '').replace('\n', ' ').strip()
         match = re.compile(self.game_instance['move_pattern']).match(response)
         if match:
+            self._check_head_tail(match)
             return response
         else:
             match = re.compile(self.game_instance['message_pattern']).match(response)
             if match:
-                if response == self.game_instance['terminate_question']:
+                self._check_head_tail(match)
+                if match.group('message') == self.game_instance['terminate_question']:
                     self.finished = True
-                elif response == self.game_instance['terminate_answer'] and self.finished:
+                elif match.group('message') == self.game_instance['terminate_answer'] and self.finished:
                     self.success = True
                     self.terminate = True
                     self.log_to_self('success', 'true')
                 else:
                     for restricted in self.game_instance['restricted']:
-                        match = re.compile(restricted).search(response)
-                        if match:
+                        restricted_match = re.compile(restricted).search(match.group('message'))
+                        if restricted_match:
                             self.terminate = True
                             self.aborted = True
                             self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
@@ -103,6 +129,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
+        time.sleep(2)
         return self.pass_turn         
 
     def _advance_game(self, player: Player, parsed_response: str):
@@ -112,6 +139,7 @@ class CleanUpMaster(DialogueGameMaster):
         if not parsed_response:
             raise RuleViolationError
         # self.success = True
+        # logger.info(f"Player {player.name}. self.pass_turn: {self.pass_turn}, parsed_response: {parsed_response}")
         match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
         if match:
             obj = match.group('obj')
@@ -132,17 +160,17 @@ class CleanUpMaster(DialogueGameMaster):
             if not success:
                 # Player is reprompted with a penalty, their turn continues. 
                 self.penalties += 1
-                message = message + "\n" + Template(self.game_instance['move_penalty']).substitute(penalty=self.penalties, max_penalties=self.max_penalties)
+                message = message + "\n" + Template(self.game_instance['penalty_message']).substitute(penalty=self.penalties, max_penalties=self.max_penalties)
                 self.log_to_self('invalid move', message)
                 self.set_context_for(player, message)
                 # raise RuleViolationError(f"Invalid move: {message}")
         else:
             match = re.compile(self.game_instance['message_pattern']).match(parsed_response)
             if match:
-                self.pass_turn = True
                 message = match.group('message')
+                self.pass_turn = True
                 # logger.info(f"Player {player.name} said: {message}")
-                if self.current_round == 0 and player == self.player_1:
+                if player == self.player_1 and self.player_2._is_initial_call:
                     initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
                     )
@@ -164,12 +192,12 @@ class CleanUpMaster(DialogueGameMaster):
             return Template(self.game_instance['penalty_counter']).substitute(
                 penalty=self.penalties, max_penalties=self.max_penalties
             )
-        # In case of strict mode (self.max_penalties == 0), we return and empty string
+        # In case of strict mode (self.max_penalties == 0), we return an empty string
         return ""
 
     def _does_game_proceed(self):
         """
-        Proceed anyways. This should check for anything that ends an episode.
+        Check if the game should continue.
         """
         if self.penalties > self.max_penalties:
             self.log_to_self('end', 'Maximum number of penalties exceeded')
@@ -198,6 +226,7 @@ class CleanUpMaster(DialogueGameMaster):
         grid_scores = self.player_1.grid.get_scores(self.player_2.grid)
         for key, value in grid_scores.items():
             self.log_key(key, value)
+
         self.log_key('Penalties', self.penalties)
         self.log_key('Object Count', len(self.player_1.grid.objects))
         self.log_key(METRIC_ABORTED, int(self.aborted))
