@@ -24,7 +24,7 @@ Remember that you can only see your own grid! You have to communicate with the o
 **Moving Objects**
 
 * You can only move objects to cells with in the bounds of the grid. The target cell must be empty, i.e., it must only contain the symbol '$empty_symbol'.
-    * For example, imagine you have a grid that looks like this: 
+* For example, imagine you have a grid that looks like this: 
 
 ```
     123
@@ -35,8 +35,10 @@ Remember that you can only see your own grid! You have to communicate with the o
    ╚═══╝
 ```
 
-    * In this example, the top left corner is at `(1,1)`, the top right corner is at `(3,1)`, the bottom left corner at `(1,3)` and the bottom right corner is at `(3,3)`.
-    * If you have agreed with the other player to move 'C' to the top left corner, you can do this with the following command: `move(C,1,1)`. The resulting grid would look like this: 
+
+* In this example, the top left corner is at `(1,1)`, the top right corner is at `(3,1)`, the bottom left corner at `(1,3)` and the bottom right corner is at `(3,3)`.
+* If you have agreed with the other player to move 'C' to the top left corner, you can do this with the following command: `move(C,1,1)`. The resulting grid would look like this: 
+
 
 ```
     123
@@ -47,10 +49,12 @@ Remember that you can only see your own grid! You have to communicate with the o
    ╚═══╝
 ```
 
-    * However, if you try `move(C,2,1)`, you will be penalized, since the spot `(2,1)` is already occupied by the vertical line '│'.
-    * Similarly, if you try `move(C,2,2)`, you will be penalized, since the spot `(2,2)` is already occupied by '┘'.
-    * Before making a move, double check that the target spot is empty, and does not hold any letter, frame, or line!
-    * If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be penalized and can try again.
+
+* However, if you try `move(C,2,1)`, you will be penalized, since the spot `(2,1)` is already occupied by the vertical line '│'.
+* Similarly, if you try `move(C,2,2)`, you will be penalized, since the spot `(2,2)` is already occupied by '┘'.
+* Before making a move, double check that the target spot is empty, and does not hold any letter, frame, or line!
+* If you try to move an object to a spot that is not empty, or try to move it outside of the grid, you will be penalized and can try again.
+
 
 **End of Game:**
 If you think you reached the goal, you can ask the other player to finish the game by sending `say(finished?)`. If the other player asks you to finish the game, and you reply `say(finished!)`, the game will end.

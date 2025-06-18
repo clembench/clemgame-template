@@ -34,11 +34,21 @@ experiments = [
         'grid_file': 'resources/grids/gs7x7_b2.json',
         'objects': 'CLP'
     },
-    # {
-    #     'name': 'gs9x9_obj3',
-    #     'grid_file': 'resources/grids/gs9x9_b3.json',
-    #     'objects': 'CLP'
-    # },
+    {
+        'name': 'gs7x7_obj4',
+        'grid_file': 'resources/grids/gs7x7_b2.json',
+        'objects': 'DUMB'
+    },
+    {
+        'name': 'gs9x9_obj3',
+        'grid_file': 'resources/grids/gs9x9_b3.json',
+        'objects': 'CLP'
+    },
+    {
+        'name': 'gs9x9_obj4',
+        'grid_file': 'resources/grids/gs9x9_b3.json',
+        'objects': 'DUMB'
+    },
     # {
     #     'name': 'gs9x9_obj4',
     #     'grid_file': 'resources/grids/gs9x9_b3.json',
@@ -94,11 +104,11 @@ experiments = [
     #     'grid_file': 'resources/grids/gs11x21_b15.json',
     #     'objects': 'ABCDEFGHIJKLM'
     # }
-    {
-        'name': 'gs11x21_obj3',
-        'grid_file': 'resources/grids/gs11x21_b15.json',
-        'objects': 'CLP'
-    }
+    # {
+    #     'name': 'gs11x21_obj3',
+    #     'grid_file': 'resources/grids/gs11x21_b15.json',
+    #     'objects': 'CLP'
+    # }
 ]
 
 class CleanUpInstanceGenerator(GameInstanceGenerator):
@@ -140,6 +150,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['invalid_response'] = self.load_template('resources/intermittent_prompts/invalid_response')
                 game_instance['penalty_message'] = self.load_template('resources/intermittent_prompts/penalty_message')
                 game_instance['penalty_counter'] = self.load_template('resources/intermittent_prompts/penalty_counter')
+                game_instance['message_relay'] = self.load_template('resources/intermittent_prompts/message_relay')
                 game_instance['move_pattern'] = '(?P<head>.*)move\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)'
                 game_instance['message_pattern'] = '(?P<head>.*)say\((?P<message>[^)]+)\)(?P<tail>.*)'
                 # game_instance['message_pattern'] = '^say\((?P<message>[^)]+)\)$'

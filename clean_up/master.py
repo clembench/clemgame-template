@@ -105,6 +105,10 @@ class CleanUpMaster(DialogueGameMaster):
             return response
         if message_match:
             self._check_head_tail(message_match)
+            if self.game_instance['lenient'] and message_match.group('message') == self.game_instance['terminate_answer']:
+                # For now, we allow to finish the game if both players send `say(finished!)` as well, 
+                # because some models are too chatty
+                self.finished = True
             if message_match.group('message') == self.game_instance['terminate_question']:
                 self.finished = True
             elif message_match.group('message') == self.game_instance['terminate_answer'] and self.finished:
@@ -145,7 +149,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        time.sleep(3)
+        # time.sleep(3)
         return self.pass_turn
 
     def _start_next_round(self) -> bool:
@@ -195,6 +199,9 @@ class CleanUpMaster(DialogueGameMaster):
                 message = match.group('message')
                 self.pass_turn = True
                 # logger.info(f"Player {player.name} said: {message}")
+                log_message = Template(self.game_instance['message_relay']).substitute(message=message)
+                player._messages.append(dict(role='assistant', content=Template(self.game_instance['message_relay']).substitute(message=log_message)))
+                self.log_event(from_="GM", to=player.name, action={'type': "send message", 'content': log_message})
                 if player == self.player_1 and self.player_2._is_initial_call:
                     initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
