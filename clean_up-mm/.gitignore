@@ -1,3 +1,8 @@
 records/*
 *.ipynb
 .idea/*
+
+resources/icons/normal/*
+resources/icons/abstract/*
+
+temp.ipynb
