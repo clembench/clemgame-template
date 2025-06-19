@@ -32,7 +32,8 @@ from clemcore.clemgame import GameInstanceGenerator
 # number of instances per experiment
 # N_INSTANCES = 10 
 N_INSTANCES = 3
-# number of icons per instance
+# number of icons per instance; 2 is only for dev purpose
+# ICON_NUM_OPTIONS = [2, 5, 9]
 ICON_NUM_OPTIONS = [5, 9]
 # configurations for each icon type
 ICON_TYPE_CONFIGS = {
@@ -87,6 +88,7 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
                 print(config)
 
                 experiment = self.add_experiment(e)
+                experiment['max_rounds'] = icon_num * 3
                 experiment["player1_initial_prompt"] = self.load_template("resources/initial_prompts/player1")
                 experiment["player2_initial_prompt"] = self.load_template("resources/initial_prompts/player2")
 
@@ -99,7 +101,7 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
                 experiment['terminate_question'] = "say(finished?)"
                 experiment['terminate_answer'] = "say(finished!)"
                 
-                experiment['message_pattern'] = "say\\((?P<message>.+)\\)"
+                experiment['message_pattern'] = "say\\((?P<message>[^)]+)\\)"
                 experiment['move_pattern'] = "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)"
 
                 background_path = self._get_random_file(os.path.join("resources", "backgrounds"), n=1)[0]

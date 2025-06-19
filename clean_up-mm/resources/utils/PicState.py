@@ -1,4 +1,5 @@
 import io
+import math
 import requests
 import base64
 import matplotlib.image as mpimg
@@ -193,5 +194,7 @@ class PicState:
         
         distance_sum = self.distance_sum(other)
         worst_case = self.worst_distance_sum()
-        return 1 - (distance_sum / worst_case)
+        min_max_normed = distance_sum / worst_case
+        return (1 - min_max_normed) ** 4
+        # return 1 - (distance_sum / worst_case)
     

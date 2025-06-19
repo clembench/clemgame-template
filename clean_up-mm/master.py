@@ -1,9 +1,10 @@
 import os.path
 import json
 import re
-from typing import Dict, Tuple, List, Union
 import logging
 import numpy as np
+from typing import Dict, Tuple, List, Union
+from collections import defaultdict
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameError, ParseError
@@ -28,6 +29,75 @@ class Cleaner(Player):
         response = self._custom_responses[np.random.randint(0, len(self._custom_responses))]
         return response
 
+class MetricHolder: 
+    """
+    This score computes how consistent the moves are, 
+    and could indicate how good the model is at describing and differentiating to target at the correct icon,
+    that it agreed to move with the other player.
+    It is computed episode-wise, and at GameMaster level (because both players contribute to it.)
+
+    Example: 
+        player 1: move A (1)
+        player 2: move A (2)
+        player 1: move B (3) 
+        player 2: move B (4)  
+    From (1) to (2) and from (3) to (4), the players are moving consistently. 
+    They only shifted the focused object from (2) to (3). 
+
+    Conversely, when the moving sequence is like
+        player 1: move A
+        player 2: move C
+        player 1: move B
+        player 2: move A
+    Then between any two consecutive moves, they are always shifting the focus.
+    """
+    def __init__(self, n_icons, max_rounds, freepik_id_set, game_master): 
+        self.moved_ids = []
+        self.shifts = 0
+
+        self.min_shifts = n_icons - 1
+        self.max_shifts = max_rounds * 2
+        self.ids_set = freepik_id_set
+        self.game_master = game_master
+
+    def add_move(self, icon_element): 
+        freepik_id = icon_element['freepik_id']
+        prev_move_count = len(self.moved_ids)
+        
+        # increment `self.shifts` only when the current id differs from last moved id
+        if prev_move_count != 0: 
+            prev = self.moved_ids[-1] 
+            
+            if freepik_id != prev: 
+                print(f"Shift of focus from {prev} to {freepik_id}")
+                self.game_master.log_to_self("log move", f"Shift of focus from {prev} to {freepik_id}")
+                self.shifts += 1
+        
+        self.moved_ids.append(freepik_id)
+
+    def compute_consistency_score(self): 
+        if self.shifts > self.max_shifts: 
+            return 0
+        
+        min_max_normed = (self.shifts - self.min_shifts) / (self.max_shifts - self.min_shifts)
+        # quadratically reduce the score
+        # eg. when self.shifts is 50% towards self.maximum, 
+        #     the score is 0.25
+        # return (1 - min_max_normed) ** 2
+        score = 1 - min_max_normed
+        return score
+    
+    def compute_coverage_score(self): 
+        moved_set = set(self.moved_ids)
+        assert moved_set <= self.ids_set, "The moved icons should be a subset of all icons."
+
+        # quadratically reduce the score when some icons are not touched by either of the players
+        # eg. when half of the icons are not touched, 
+        #     the score is 0.25
+        return (len(moved_set) / len(self.ids_set)) ** 2
+            
+
+
 class MultiModalCleanUpMaster(DialogueGameMaster):
     def __init__(self, game_name: str, game_path: str, experiment: Dict, player_models: List[Model]):
         super().__init__(game_name, game_path, experiment, player_models)
@@ -40,21 +110,25 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         # 2. load and set init_context for player 1
         # 3. init game state flags: success? abort? finished?
 
-        # [Question]: game design
-        # now the background is the same for all instances in an experiment
-        # is it necessary to get diff background for each instance in an experiment? 
-        # -> probably no, otherwise there're too many variables to control
-        background_path = self.experiment['background']
+        self.max_rounds = self.experiment['max_rounds']
+        self.message_pattern = self.experiment['message_pattern']
+        self.move_pattern = self.experiment['move_pattern']
+        self.should_pass_turn = True
+
+        n_icons = len(game_instance['state1'])
+        freepik_id_set = set(ele['freepik_id'] for ele in game_instance['state1'])
+        self.metric_holder = MetricHolder(n_icons, self.max_rounds, freepik_id_set, self)
 
         self.player1 = Cleaner(self.player_models[0])
         self.player2 = Cleaner(self.player_models[1] if len(self.player_models) > 1 else self.player_models[0])
 
+        background_path = self.experiment['background']
         self.player1.pic_state = PicState(background_path, game_instance['state1'])
         self.player2.pic_state = PicState(background_path, game_instance['state2'])
         
         # Temporary: bypass the template loaded by `instancegenerator.py` 
         # in case I want to change the prompt without affecting the instance state
-        player1_init_text = self.load_template("resources/initial_prompts/player1")
+        player1_init_text = self.load_template("resources/initial_prompts/player1").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
         player1_init_image = self.player1.pic_state.draw()
         player1_init_context = self.__prep_text_and_image_prompt(player1_init_text, 
                                                                 player1_init_image, 
@@ -67,9 +141,11 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.add_player(self.player1, initial_context=player1_init_context)
         self.add_player(self.player2)
 
+        
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.abort = False      # True if game is terminated because of rule violation or parse error        
+        self.lose = False       # True if game exceeds max_rounds
 
 
     # [Question]: codebase
@@ -115,55 +191,72 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         return self.get_players()[other_player_idx]
     
     def __match_say(self, message): 
-        # lenient impl, as long as the message contains `say(...)`, it is considered valid
-        return re.compile(self.experiment['message_pattern']).search(message)
+        return re.compile(self.message_pattern).search(message)
 
     def __match_move(self, message): 
-        # lenient impl, as long as the message contains `move(...)`, it is considered valid
-        return re.compile(self.experiment['move_pattern']).search(message)
+        return re.compile(self.move_pattern).search(message)
+
+    def __match_multi(self, message): 
+        match_says = list(re.compile(self.message_pattern).finditer(message))
+        match_moves = list(re.compile(self.move_pattern).finditer(message))
+
+        return len(match_says) + len(match_moves) > 1
 
     def _parse_response(self, player: Player, response: str) -> str:
-        if bool(self.__match_move(response)): 
-            return response
-        elif bool(self.__match_say(response)):
+        stripped_response = response.replace('`', '').replace('\n', ' ').strip()
+
+        print(f"===== {player.name} =====")
+        print(f"response: {response}") 
+        print(f"stripped response: {stripped_response}") 
+
+        if self.__match_multi(stripped_response): 
+            # return 
+            self.log_to_self("parsing warning", f"response matches multiple command:\n{response}")
+            return defaultdict(lambda: False, { "response": stripped_response, "isMulti": True} )
+        elif bool(self.__match_say(stripped_response)): 
             # normal say message:
             # TODO: check if say message contains coords
-            return response            
+            self.log_to_self("parsing", f"response matches say:\n{response}")
+            return defaultdict(lambda: False, { "response": stripped_response, "isSay": True} )
+        elif bool(self.__match_move(stripped_response)):
+            self.log_to_self("parsing", f"response matches move:\n{response}")
+            return defaultdict(lambda: False, { "response": stripped_response, "isMove": True} )
         else: 
-            self.abort = True
+            self.log_to_self("parsing error", f"response matches neither say nor move:\n{response}")
             raise ParseError(f"Invalid response format: {response}")
 
     def _on_parse_error(self, error: GameError):
         self.success = False
         self.abort = True
 
-    def __process_say(self, player: Player, response: str, init: bool = False):
+    def __process_say(self, player: Player, response: str, other_init: bool = False) -> bool:
         """
         Process the say response from the player.
         If `init` is True, it means this is the initial call for the next player, 
         need to inject the response of the current player in the initial context for the next player.
+
+        Returns: a boolean indicating whether GM should pass turn to the next player or not.
         """
-        if response == self.experiment['terminate_question']:
+        # Temp: losen the ending condition
+        # # if response == self.experiment['terminate_question']:
+        if self.experiment['terminate_question'] in response:
             self.finished = True
 
-        if response == self.experiment['terminate_answer'] and self.finished:
+        # Temp: losen the ending condition
+        # if response == self.experiment['terminate_answer'] and self.finished:
+        if self.experiment['terminate_answer'] in response and self.finished:
             self.finished = True
             self.success = True
-
-            distances = self._compute_episode_score()
-            self.log_to_self("log final distance", f"total distance: { round(distances['distance_sum'], 2) }") 
-            self.log_to_self("log final distance", f"distance score: { round(distances['distance_score'], 2) }") 
-                
         # feedback to current player about their own command (eg. your message has been relayed)                
         player._messages.append(dict(role='user', content=self.experiment['feedback_say']))
 
         # prep context for the next player
         to_inject = self.experiment['feedback_other_say'].replace("$$OTHER_PLAYER_SAY$$", response).replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
         
-        if init:
+        if other_init:
             # Temporary: bypass the template loaded by `instancegenerator.py` 
             # in case I want to change the prompt without affecting the instance state
-            player2_init_text = self.load_template("resources/initial_prompts/player2")
+            player2_init_text = self.load_template("resources/initial_prompts/player2").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
             player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
 
             player2_init_image = self.player2.pic_state.draw()
@@ -177,47 +270,49 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             # feedback to the other player about current player's command (eg. the other player said this to you: <response>)
             self.set_context_for(self.__other_player(), to_inject)
         
-        # # logs
-        # distance = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
-        # self.log_to_self("log distance", f"current distance:\npairwise distance: {json.dumps(distance, indent=4)}") 
-        # self.log_to_self("log distance", f"current distance:\ntotal distance: {round(sum(distance.values()), 2)}") 
+        # indicate that the turn should be passed to the next player
+        return True 
 
     # TODO: enable re-prompting for move
-    def __process_move(self, player: Player, response: str, init: bool = False):
+    def __process_move(self, player: Player, response: str, other_init: bool = False):
         """
         Process the move response from the player.
         If `init` is True, it means this is the initial call for the next player, 
         need to inject the response of the current player in the initial context for the next player.
         """
-        distance_before_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
 
         # alter the pic_state of the current player
         match = self.__match_move(response)
         obj = match.group("obj")
         x = match.group("x")
         y = match.group("y")
-        player.pic_state.update(obj, int(x), int(y))
+
+        icon_element = player.pic_state.get_element_by_id(obj)
+        if icon_element:
+            player.pic_state.update(obj, int(x), int(y))
+            self.metric_holder.add_move(icon_element)
 
         distance_after_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
 
         # build the 1st part of feedback to current player (eg. the state of your pic is changed and attached)
         feedback_text = self.experiment['feedback_move']
         feedback_image = player.pic_state.draw()
-        content = self.__prep_text_and_image_prompt(feedback_text, 
+        content = self.__prep_text_and_image_prompt(f"{player.name} has moved the image", 
                                                     feedback_image, 
                                                     content_only=True)   
         
         # adding visual feedback lead to this error, I doubt input token overflow
         # Error code: 400 - {'error': {'message': 'Provider returned error', 'code': 400, 'metadata': {'raw': '{"error":{"code":"invalid_parameter_error","param":null,"message":"<400> InternalError.Algo.InvalidParameter: Range of input length should be [1, 129024]","type":"invalid_request_error"},"id":"chatcmpl-262914be-bc46-9270-9a8c-9940431806a3","request_id":"262914be-bc46-9270-9a8c-9940431806a3"}', 'provider_name': 'Alibaba'}}, 'user_id': 'user_2x4zp7KKD00ihTJC2Ox7pxsiwT2'}
         # player._messages.append(dict(role='user', content=content))
+        player._messages.append(dict(role='user', content="Your picture has been updated."))
         
         # prep context for the next player
         to_inject = self.experiment['feedback_other_move'].replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
 
-        if init:
+        if other_init:
             # Temporary: bypass the template loaded by `instancegenerator.py` 
             # in case I want to change the prompt without affecting the instance state
-            player2_init_text = self.load_template("resources/initial_prompts/player2")
+            player2_init_text = self.load_template("resources/initial_prompts/player2").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
             player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
 
             player2_init_image = self.player2.pic_state.draw()
@@ -240,11 +335,12 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.log_to_self("log move", f"{player.name} attempted to move the icon {icon_info}")
 
         self.log_to_self("log move", content)
-        # self.log_to_self("log distance", f"before move:\npairwise distance: {json.dumps(distance_before_move, indent=4)}") 
-        # self.log_to_self("log distance", f"before move:\ntotal distance: {round(sum(distance_before_move.values()), 2)}") 
 
         self.log_to_self("log distance", f"after move:\npairwise distance: {json.dumps(distance_after_move, indent=4)}") 
         self.log_to_self("log distance", f"after move:\ntotal distance: {round(sum(distance_after_move.values()), 2)}") 
+
+        # indicating whether should pass turn to the other player
+        return True
 
     def _advance_game(self, player: Player, parsed_response: str):
         """
@@ -264,35 +360,42 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             #   eg. "The other player said this to you: <parsed_response>"
             #   eg. "The other player moved an icon on their picture"
 
-
         if not parsed_response:
             raise RuleViolationError
         
+        if parsed_response['isMulti']: 
+            feedback = f"Warning: Invalid command. Use only one command per turn, either say or move. Now send your command again."
+            print(f"--- reprompting: GM to {player.name}---")
+            print(f"feedback: {feedback}")             
+            self.set_context_for(player, feedback)
+            self.should_pass_turn = False
+        
         # The next player hasn't been prompted, need to init their context
-        if self.__other_player()._is_initial_call: 
-            if bool(self.__match_say(parsed_response)):
-                self.__process_say(player, parsed_response, init=True)
+        other_init = self.__other_player()._is_initial_call
 
-            elif bool(self.__match_move(parsed_response)):
-                self.__process_move(player, parsed_response, init=True)
+        if parsed_response['isSay']:
+            self.should_pass_turn = self.__process_say(player, parsed_response['response'], other_init=other_init)
+            # self.__process_say(player, parsed_response['response'], other_init=other_init)
 
-            else: 
-                raise GameError(f"Invalid response format: {parsed_response}")
-        # All players have been prompted at least once
+
+        elif parsed_response['isMove']:
+            self.should_pass_turn = self.__process_move(player, parsed_response['response'], other_init=other_init)
+            # self.__process_move(player, parsed_response['response'], other_init=other_init)
+
         else: 
-            if bool(self.__match_say(parsed_response)):
-                self.__process_say(player, parsed_response, init=False)            
-
-            if bool(self.__match_move(parsed_response)):
-                self.__process_move(player, parsed_response, init=False)
-
-        print("===== at the end of _advance_game =====")
-        print(f"player.name: {player.name}")
-        print(f"response: {parsed_response}") 
+            raise GameError(f"Invalid response format: {parsed_response}")
 
 
+    def _should_pass_turn(self): 
+        return self.should_pass_turn
+    
     def _does_game_proceed(self):
         if self.success or self.abort: 
+            return False
+        
+        if self.current_round >= self.max_rounds:
+            self.lose = True
+            self.success = False
             return False
         
         return True
@@ -300,28 +403,49 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
     def compute_turn_score(self):
         return 1 if self.success else 0
 
-    def _compute_episode_score(self):
-        if self.abort:
-            return {"distance_sum": float('inf'), "distance_score": 0}
+    def compute_episode_score(self):
+        if self.abort or self.lose:
+            return {"distance_sum": float('inf'), "distance_score": 0, "consistency_score": 0, "coverage_score": 0}
 
         p1 = self.player1.pic_state
         p2 = self.player2.pic_state
         distance_sum = p1.distance_sum(p2)
         distance_score = p1.distance_score(p2)
 
-        return {"distance_sum": distance_sum, "distance_score": distance_score}
+        consistency_score = self.metric_holder.compute_consistency_score()
+        coverage_score = self.metric_holder.compute_coverage_score()
 
-        
-    def compute_episode_score(self):
-        scores = self._compute_episode_score()
-        self.log_key('distance_sum', scores['distance_sum'])
-        self.log_key('distance_score', scores['distance_score'])
+        scores = {
+                    "distance_sum": distance_sum, 
+                    "distance_score": distance_score,
+                    "consistency_score": consistency_score,    
+                    "coverage_score": coverage_score
+                }
+        print("in compute_episode_score")
+        print(scores)
+        return scores
+
 
     def _on_after_game(self):
+        scores = self.compute_episode_score()
+        final_score = float(scores['distance_score']) * float(scores['consistency_score']) * float(scores['coverage_score'])
+
+        # log_key to `interaction.json`
         self.log_key(METRIC_ABORTED, int(self.abort))
-        # TODO: a more reasonable "lose" metric
-        self.log_key(METRIC_LOSE, int(not self.success))
-        self.log_key(METRIC_SUCCESS, int(self.success))            
+        self.log_key(METRIC_LOSE, int(self.lose))
+        self.log_key(METRIC_SUCCESS, int(self.success))     
+        self.log_key('distance_sum', str(scores['distance_sum']))
+        self.log_key('distance_score', scores['distance_score'])
+        self.log_key('consistency_score', scores['consistency_score'])
+        self.log_key('coverage_score', scores['coverage_score'])
+        self.log_key('final_score', final_score)
+        
+        # log to display in transcript``
+        self.log_to_self("log metric", f"total distance:\n{ round(scores['distance_sum'], 2) }") 
+        self.log_to_self("log metric", f"distance score:\n{ round(scores['distance_score'], 2) }") 
+        self.log_to_self("log metric", f"consistency score:\n{ round(scores['consistency_score'], 2) }")
+        self.log_to_self("log metric", f"coverage score:\n{ round(scores['coverage_score'], 2) }")       
+        self.log_to_self("log metric", f"final score:\n{ round(final_score, 2) }")       
 
 
 class MultiModalCleanUpScorer(GameScorer):
@@ -353,7 +477,7 @@ class MultiModalCleanUpScorer(GameScorer):
         print("===== in compute_episode_scores =====")
         # print(json.dumps(interactions, indent=4))
         # dummy implementation
-        self.log_episode_score(BENCH_SCORE, interactions['distance_score'])
+        self.log_episode_score(BENCH_SCORE, interactions['final_score'])
 
 
 
