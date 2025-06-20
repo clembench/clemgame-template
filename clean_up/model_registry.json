@@ -395,6 +395,24 @@
         "model_config": {}
     },
     {
+        "model_name": "deepseek-v3-base",
+        "model_id": "deepseek/deepseek-v3-base:free",
+        "backend": "openai_compatible",
+        "release_date": "2024-12-01",
+        "open_weight": true,
+        "parameters": "671B",
+        "languages": [
+            "en",
+            "zh"
+        ],
+        "context_size": "128k",
+        "license": {
+            "name": "Deepseek",
+            "url": "https://github.com/deepseek-ai/DeepSeek-V3/blob/main/LICENSE-MODEL"
+        },
+        "model_config": {}
+    },
+    {
         "model_name": "mistral-large-latest",
         "model_id": "mistral-large-latest",
         "backend": "mistral",
@@ -442,5 +460,23 @@
         "model_config": {
 
         }
+    },
+    {
+        "model_name": "deepseek-r1",
+        "model_id": "deepseek/deepseek-r1:free",
+        "backend": "openai_compatible",
+        "release_date": "2025-01-20",
+        "open_weight": true,
+        "parameters": "671B",
+        "languages": [
+            "en",
+            "zh"
+        ],
+        "context_size": "128k",
+        "license": {
+            "name": "Deepseek",
+            "url": "https://github.com/deepseek-ai/DeepSeek-R1/blob/main/LICENSE"
+        },
+        "model_config": {}
     }
 ]

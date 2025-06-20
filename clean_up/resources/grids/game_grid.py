@@ -3,6 +3,7 @@ import json
 from string import Template
 
 EMPTY_SYMB = "◌"
+INITIAL_DISTANCE = "Initial Distance"
 TOTAL_DISTANCE = "Total Distance"
 DISTANCE_SCORE = "Distance Score"
 DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
@@ -17,7 +18,7 @@ with open("resources/grids/move_messages.json", "r") as f:
             move_messages[language][key] = Template(messages[language][key])
 
 class GameGrid:
-    def __init__(self, grid: str=None, language: str='en', object_string: str=None):
+    def __init__(self, grid: str=None, language: str='en', object_string: str=None, show_coords: bool = False):
         """
         Initializes the GameGrid class
         """
@@ -28,7 +29,7 @@ class GameGrid:
         if object_string:
             self.place_objects(list(object_string))
         self.language = language
-        self.show_coords = False  # Default value, can be set later
+        self.show_coords = show_coords
 
     def get_dimensions(self) -> tuple[int, int]:
         """
@@ -232,13 +233,6 @@ class GameGrid:
                 all_distances[obj] = distance
                 total_distance += distance
         return total_distance
-
-    def worst_distance_sum(self):
-        """
-        Worst case scenario: all identical objects are at opposite corners of the grid.
-        """
-        max_distance = ((self.width - 1) ** 2 + (self.height - 1) ** 2) ** 0.5
-        return max_distance * len(self.objects)
     
     def expected_total_distance(self):
         """
@@ -250,19 +244,23 @@ class GameGrid:
         avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
         return avg_dist * self.object_set().__len__()
     
-    def distance_score(self, other):
+    def expected_distance_score(self, distance_sum: float):
         """
-        Returns a score based on the distance sum compared to the worst case scenario.
+        Returns the expected distance score based on the distance sum and the expected total distance.
         """
-        if not isinstance(other, GameGrid):
-            raise ValueError("Comparison is only supported between two GameGrid instances")
-        if not self.object_set() == other.object_set():
-            raise ValueError("Grids must have the same objects for comparison")
-        
-        distance_sum = self.distance_sum(other)
-        worst_case = self.worst_distance_sum()
-        return 1 - (distance_sum / worst_case)
+        expected_distance = self.expected_total_distance()
+        if expected_distance <= 0:
+            raise ValueError("Expected distance must be a positive number")
+        return max(0, 1 - (distance_sum / expected_distance))
     
+    def distance_reduction_score(self, distance_sum: float, initial_distance: float):
+        """
+        Returns the distance reduction score based on the distance sum and the initial distance.
+        """
+        if initial_distance is None or initial_distance <= 0:
+            raise ValueError("Initial distance must be a positive number")
+        return max(0, 1 - (distance_sum / initial_distance))
+
     def get_scores(self, other, initial_distance: float = None):
         """
         Returns a dictionary with the distance sum and distance score compared to the worst case scenario.
@@ -275,16 +273,14 @@ class GameGrid:
             raise ValueError("Initial distance must be provided for score calculation")
         
         distance_sum = self.distance_sum(other)
-        worst_case = self.worst_distance_sum()
-        old_distance_score = 1 - (distance_sum / worst_case)
-        expected_distance = self.expected_total_distance()
-        expected_distance_score = max(0, 1 - (distance_sum / expected_distance))
-        distance_reduction_score = max(0, 1 - (distance_sum / initial_distance))
+
+        expected_distance_score = self.expected_distance_score(distance_sum)
+        distance_reduction_score = self.distance_reduction_score(distance_sum, initial_distance)
+
         distance_score = (expected_distance_score + distance_reduction_score) / 2
         
         return {
             TOTAL_DISTANCE: distance_sum,
-            "old_distance_score": old_distance_score,
             EXPECTED_DISTANCE_SCORE: expected_distance_score,
             DISTANCE_REDUCTION_SCORE: distance_reduction_score,
             DISTANCE_SCORE: distance_score

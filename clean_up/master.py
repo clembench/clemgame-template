@@ -12,10 +12,13 @@ from clemcore.clemgame.master import ProtocolError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
     # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
 from clemcore.utils import file_utils, string_utils
-from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE
+from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE, INITIAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE
 
 logger = logging.getLogger(__name__)
 
+
+# TODO: implement strict mode. Should not end game immediately, 
+#       but enforce one-command-only responses with penalties.
 
 class Cleaner(Player):
     def __init__(self, model: Model):
@@ -31,10 +34,26 @@ class Cleaner(Player):
             "haha, I love cleaning!",
             ]
         self.grid = None  # This will be set in the game master
+        self._relay_message = ""
 
     def _custom_response(self, messages):
         response = self._custom_responses[np.random.randint(0, len(self._custom_responses))]
         return response
+    
+    def store_relay_message(self, message: str):
+        """
+        Store the relay message to add it to the next message.
+        """
+        self._relay_message = message
+
+    def __call__(self, context: Dict, memorize: bool = True) -> str:
+        """
+        adds the relay message to the context, then calls the super class __call__ method
+        """
+        if self._relay_message:
+            context['content'] = self._relay_message + context['content']
+            self._relay_message = ""
+        return super().__call__(context, memorize=memorize)
 
 class CleanUpMaster(DialogueGameMaster):
     """
@@ -91,7 +110,6 @@ class CleanUpMaster(DialogueGameMaster):
 
     def _parse_response(self, player: Player, response: str) -> str:
         self.log_to_self('player_response', response)
-        # logger.info(f"Parsing response of player {player.name}, current round: {self.current_round}")
         # TODO: for now, we will just remove backticks and newlines
         response = response.replace('`', '').replace('\n', ' ').strip()
         move_match = re.compile(self.game_instance['move_pattern']).match(response)
@@ -128,7 +146,6 @@ class CleanUpMaster(DialogueGameMaster):
             raise ParseError(reason=self.game_instance["parse_errors"]["invalid_format"], response=response) #, info="Response does not match any expected pattern.")
 
     def _on_parse_error(self, error: GameError):
-        # TODO: add violated request count metric
         if self.game_instance['lenient']:
             # In lenient mode, we just log the error and continue
             self.pass_turn = False
@@ -149,7 +166,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        # time.sleep(3)
+        time.sleep(3)
         return self.pass_turn
 
     def _start_next_round(self) -> bool:
@@ -162,13 +179,8 @@ class CleanUpMaster(DialogueGameMaster):
             return False
 
     def _advance_game(self, player: Player, parsed_response: str):
-        # logger.info(f"Messages for {player.name}:\n")
-        # for message in player.messages:
-        #     logger.info(f"  {message}")
         if not parsed_response:
             raise RuleViolationError
-        # self.success = True
-        # logger.info(f"Player {player.name}, parsed_response:\n{parsed_response}")
         match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
         if match:
             obj = match.group('obj')
@@ -198,18 +210,13 @@ class CleanUpMaster(DialogueGameMaster):
             if match:
                 message = match.group('message')
                 self.pass_turn = True
-                # logger.info(f"Player {player.name} said: {message}")
-                log_message = Template(self.game_instance['message_relay']).substitute(message=message)
-                player._messages.append(dict(role='assistant', content=Template(self.game_instance['message_relay']).substitute(message=log_message)))
-                self.log_event(from_="GM", to=player.name, action={'type': "send message", 'content': log_message})
+                player.store_relay_message(Template(self.game_instance['message_relay']).substitute(message=message))
                 if player == self.player_1 and self.player_2._is_initial_call:
                     initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
                     )
-                    # logger.info(f'Initial prompt for player 2: {initial_prompt_p2}')
                     self.set_context_for(self.player_2, initial_prompt_p2)
                 else:
-                    # logger.info(f"Setting context for player {self._next_player().name} with new turn message: {Template(self.game_instance['new_turn']).substitute(turn_message=message)}.")
                     next_player_prompt = self._penalty_counter_message()
                     next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)
                     self.set_context_for(self._other_player(), next_player_prompt)
@@ -252,12 +259,8 @@ class CleanUpMaster(DialogueGameMaster):
         return 0
 
     def _on_after_game(self):
-        if self.success:
-            self.log_key('success', 'true')
-        else:
-            self.log_key('success', 'false')
         grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
-        self.log_key('Initial Distance', self.initial_distance)
+        self.log_key(INITIAL_DISTANCE, self.initial_distance)
         score_string = ""
         for key, value in grid_scores.items():
             self.log_key(key, value)
@@ -299,33 +302,23 @@ class CleanUpScorer(GameScorer):
         self.log_episode_score("Penalties", penalties)
         self.log_episode_score("Turn Count", turn_count)
 
-        total_distance = episode_interactions[TOTAL_DISTANCE]
-        self.log_episode_score(TOTAL_DISTANCE, total_distance)
-        distance_score = episode_interactions[DISTANCE_SCORE]
-        self.log_episode_score(DISTANCE_SCORE, distance_score)
-        # we allow two turns per object, after that every turn adds a penalty
-        # turn_count = max(turn_count - obj_count * 2, 0)
-        # penalties += turn_count
-        if penalties > 0:
-            penalty_score = 1 / penalties
-        else:
-            penalty_score = 1
+        for key in [INITIAL_DISTANCE, TOTAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE, DISTANCE_SCORE]:
+            if key in episode_interactions:
+                self.log_episode_score(key, episode_interactions[key])
+            else:
+                logger.warning(f"Key {key} not found in episode interactions, skipping logging.")
+        
+        penalty_score = 1 - penalties / (self.game_instance['max_penalties'] + 1)
         self.log_episode_score("Penalty Score", penalty_score)
         # The final score is a product of the distance score and the penalty score
-        # logger.info(f"Game: {episode_interactions['meta']['game_name']}, experiment: {episode_interactions['meta']['experiment_name']}, game_id: {episode_interactions['meta']['game_id']}, dialogue_pair: {episode_interactions['meta']['dialogue_pair']}")
-        # logger.info(f'{METRIC_SUCCESS}: {episode_interactions[METRIC_SUCCESS]}, {METRIC_ABORTED}: {episode_interactions[METRIC_ABORTED]}')
         if episode_interactions[METRIC_SUCCESS]:
-            logger.info(f'success, logging Main Score as {distance_score * penalty_score}')
-            self.log_episode_score(BENCH_SCORE, distance_score * penalty_score)
+            if episode_interactions[METRIC_LOSE]:
+                self.log_episode_score(BENCH_SCORE, 0)
+            else:
+                self.log_episode_score(BENCH_SCORE, episode_interactions[DISTANCE_SCORE] * penalty_score)
         else:
             logger.info(f'aborted, logging Main Score as np.nan')
             self.log_episode_score(BENCH_SCORE, np.nan)
-    # def log_main_score(self, episode_interactions: Dict):
-    #     if episode_interactions['success'] == 'true':
-    #         self.log_episode_score("BENCH_SCORE", 100)
-    #     elif episode_interactions['success'] == 'false':
-    #         self.log_episode_score("BENCH_SCORE", 0)
-
 
 class SomeGameBenchmark(GameBenchmark):
 

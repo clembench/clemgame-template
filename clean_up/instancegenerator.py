@@ -5,13 +5,11 @@ python3 instancegenerator.py
 Creates instance.json file in ./in
 
 """
-import json
 import os
 import random
 import logging
 
 from string import Template
-
 from clemcore.clemgame import GameInstanceGenerator
 from resources.grids.game_grid import GameGrid, EMPTY_SYMB
 
@@ -24,11 +22,6 @@ N_INSTANCES = 2
 LANGUAGE = 'en'
 
 experiments = [
-    # {
-    #     'name': 'gs5x5_obj3',
-    #     'grid_file': 'resources/grids/gs5x5_b2.json',
-    #     'objects': 'CLP'
-    # },
     {
         'name': 'gs7x7_obj3',
         'grid_file': 'resources/grids/gs7x7_b2.json',
@@ -40,75 +33,25 @@ experiments = [
         'objects': 'DUMB'
     },
     {
-        'name': 'gs9x9_obj3',
-        'grid_file': 'resources/grids/gs9x9_b3.json',
-        'objects': 'CLP'
-    },
-    {
         'name': 'gs9x9_obj4',
         'grid_file': 'resources/grids/gs9x9_b3.json',
         'objects': 'DUMB'
     },
-    # {
-    #     'name': 'gs9x9_obj4',
-    #     'grid_file': 'resources/grids/gs9x9_b3.json',
-    #     'objects': 'DUMB'
-    # },
-    # {
-    #     'name': 'gs11x11_obj3',
-    #     'grid_file': 'resources/grids/gs11x11_b7.json',
-    #     'objects': 'CLP'
-    # },
-    # {
-    #     'name': 'gs11x11_obj5',
-    #     'grid_file': 'resources/grids/gs11x11_b7.json',
-    #     'objects': 'CHITW'
-    # },
-    # {
-    #     'name': 'gs11x11_obj7',
-    #     'grid_file': 'resources/grids/gs11x11_b7.json',
-    #     'objects': 'POTSDAM'
-    # },
-    # {
-    #     'name': 'gs11x11_obj9',
-    #     'grid_file': 'resources/grids/gs11x11_b7.json',
-    #     'objects': 'MAGISOULE'
-    # },
-    # {
-    #     'name': 'gs11x16_obj7',
-    #     'grid_file': 'resources/grids/gs11x16_b10.json',
-    #     'objects': 'POTSDAM'
-    # },
-    # {
-    #     'name': 'gs11x16_obj9',
-    #     'grid_file': 'resources/grids/gs11x16_b10.json',
-    #     'objects': 'MAGISOULE'
-    # },
-    # {
-    #     'name': 'gs11x16_obj11',
-    #     'grid_file': 'resources/grids/gs11x16_b10.json',
-    #     'objects': 'ABCDEFGHIJK'
-    # },
-    # {
-    #     'name': 'gs11x21_obj9',
-    #     'grid_file': 'resources/grids/gs11x21_b15.json',
-    #     'objects': 'MAGISOULE'
-    # },
-    # {
-    #     'name': 'gs11x21_obj11',
-    #     'grid_file': 'resources/grids/gs11x21_b15.json',
-    #     'objects': 'ABCDEFGHIJK'
-    # },
-    # {
-    #     'name': 'gs11x21_obj13',
-    #     'grid_file': 'resources/grids/gs11x21_b15.json',
-    #     'objects': 'ABCDEFGHIJKLM'
-    # }
-    # {
-    #     'name': 'gs11x21_obj3',
-    #     'grid_file': 'resources/grids/gs11x21_b15.json',
-    #     'objects': 'CLP'
-    # }
+    {
+        'name': 'gs9x9_obj5',
+        'grid_file': 'resources/grids/gs9x9_b3.json',
+        'objects': 'CHITW'
+    },
+    {
+        'name': 'gs11x11_obj5',
+        'grid_file': 'resources/grids/gs11x11_b7.json',
+        'objects': 'CHITW'
+    },
+    {
+        'name': 'gs11x11_obj7',
+        'grid_file': 'resources/grids/gs11x11_b7.json',
+        'objects': 'POTSDAM'
+    }
 ]
 
 class CleanUpInstanceGenerator(GameInstanceGenerator):
@@ -153,7 +96,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['message_relay'] = self.load_template('resources/intermittent_prompts/message_relay')
                 game_instance['move_pattern'] = '(?P<head>.*)move\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)'
                 game_instance['message_pattern'] = '(?P<head>.*)say\((?P<message>[^)]+)\)(?P<tail>.*)'
-                # game_instance['message_pattern'] = '^say\((?P<message>[^)]+)\)$'
+                # Currently just checking for the word "finished" in the message
                 # game_instance['terminate_question'] ='^say(finished?)$'
                 game_instance['terminate_question'] = 'finished?'
                 # game_instance['terminate_answer'] = '^say(finished)$'
