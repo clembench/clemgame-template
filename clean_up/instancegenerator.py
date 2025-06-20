@@ -101,14 +101,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['terminate_question'] = 'finished?'
                 # game_instance['terminate_answer'] = '^say(finished)$'
                 game_instance['terminate_answer'] = 'finished!'
-                game_instance['restricted'] = ['[0-9]+', '\brows?', '\bcolumns?', '\bone\b', '\btwo\b', 
-                                            '\bthree\b', '\bfour\b', '\bfive\b', '\bsix\b', '\bseven\b', 
-                                            '\beight\b', '\bnine\b', '\bten\b', '\beleven\b', '\btwelve\b',
-                                            '\bthirteen\b', '\bfirst\b', '\bsecond\b', '\bthird\b', '\bfourth\b',
-                                            '\bfifth\b', '\bsixth\b', '\bseventh\b', '\beighth\b', '\bninth\b',
-                                            '\btenth\b', '\beleventh\b', '\btwelfth\b', '\bthirteenth\b'
-                                            ]
-                # TODO: how to prohibit numbers in different languages?
+                game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
                 game_instance['parse_errors'] = self.load_json('resources/intermittent_prompts/parse_errors.json')[LANGUAGE]
 
     def initial_prompt(self, grid: GameGrid, max_penalties: int = 10) -> str:

@@ -5,17 +5,16 @@ import numpy as np
 from string import Template
 import re
 import time
+import ast
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
-from clemcore.clemgame.master import ProtocolError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
     # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
-from clemcore.utils import file_utils, string_utils
+# from clemcore.utils import file_utils, string_utils
 from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE, INITIAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE
 
 logger = logging.getLogger(__name__)
-
 
 # TODO: implement strict mode. Should not end game immediately, 
 #       but enforce one-command-only responses with penalties.
@@ -24,14 +23,15 @@ class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
         self._custom_responses = [
-            "move(C,1,1)",
-            "say(Let's move C to the top left corner.)",
-            "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
-            "Let's gooo! `say(You are the best cleaner ever!)`",
-            "move(C, 1, 1",
-            "say(Move C to (1, 1).)",
-            "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
-            "haha, I love cleaning!",
+            "say(Put C in the first row and eigth column.)",
+            # "move(C,1,1)",
+            # "say(Let's move C to the top left corner.)",
+            # "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
+            # "Let's gooo! `say(You are the best cleaner ever!)`",
+            # "move(C, 1, 1",
+            # "say(Move C to (1, 1).)",
+            # "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
+            # "haha, I love cleaning!",
             ]
         self.grid = None  # This will be set in the game master
         self._relay_message = ""
@@ -166,7 +166,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        time.sleep(3)
+        # time.sleep(3)
         return self.pass_turn
 
     def _start_next_round(self) -> bool:
