@@ -31,10 +31,10 @@ from clemcore.clemgame import GameInstanceGenerator
 """
 # number of instances per experiment
 # N_INSTANCES = 10 
-N_INSTANCES = 3
+N_INSTANCES = 2
 # number of icons per instance; 2 is only for dev purpose
-# ICON_NUM_OPTIONS = [2, 5, 9]
-ICON_NUM_OPTIONS = [5, 9]
+ICON_NUM_OPTIONS = [2]
+# ICON_NUM_OPTIONS = [5, 9]
 # configurations for each icon type
 ICON_TYPE_CONFIGS = {
             "normal": {
@@ -42,7 +42,7 @@ ICON_TYPE_CONFIGS = {
                 "n_subcategories": "$$ICON_NUM$$",
                 "n_icons_per_subcategory": 1,
             }, 
-            "similar": {
+            "similar": {  # maybe change to "normal_similar"
                 "category": "normal", 
                 "n_subcategories": 1,
                 "n_icons_per_subcategory": "$$ICON_NUM$$",
@@ -50,7 +50,7 @@ ICON_TYPE_CONFIGS = {
             # across different sub-categories of abstract, 
             # it's easy to distinguish the icons, 
             # so we only need to select one sub-category,
-            "abstract": {  
+            "abstract": {  # maybe change to "abstract_similar"
                 "category": "abstract",
                 "n_subcategories": 1,
                 "n_icons_per_subcategory": "$$ICON_NUM$$",

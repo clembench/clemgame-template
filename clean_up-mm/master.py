@@ -52,7 +52,8 @@ class MetricHolder:
     Then between any two consecutive moves, they are always shifting the focus.
     """
     def __init__(self, n_icons, max_rounds, freepik_id_set, game_master): 
-        self.moved_ids = []
+        # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
+        self.moves = []
         self.shifts = 0
 
         self.min_shifts = n_icons - 1
@@ -60,20 +61,24 @@ class MetricHolder:
         self.ids_set = freepik_id_set
         self.game_master = game_master
 
-    def add_move(self, icon_element): 
+    def add_move(self, move_info): 
+        """
+        move_info: a tuple: (player, { id, coord, name, url, freepik_id, img } )
+        """
+        player, icon_element = move_info
+
         freepik_id = icon_element['freepik_id']
-        prev_move_count = len(self.moved_ids)
         
         # increment `self.shifts` only when the current id differs from last moved id
-        if prev_move_count != 0: 
-            prev = self.moved_ids[-1] 
+        if len(self.moves) != 0: 
+            prev_player, prev_icon = self.moves[-1] 
             
-            if freepik_id != prev: 
-                print(f"Shift of focus from {prev} to {freepik_id}")
-                self.game_master.log_to_self("log move", f"Shift of focus from {prev} to {freepik_id}")
+            if freepik_id != prev_icon['freepik_id']: 
+                print(f"Shift of focus from freepik_id {prev_icon['freepik_id']} to {freepik_id}")
+                self.game_master.log_to_self("log move", f"Shift of focus from freepik_id {prev_icon['freepik_id']} to {freepik_id}")
                 self.shifts += 1
         
-        self.moved_ids.append(freepik_id)
+        self.moves.append(move_info)
 
     def compute_consistency_score(self): 
         if self.shifts > self.max_shifts: 
@@ -88,7 +93,7 @@ class MetricHolder:
         return score
     
     def compute_coverage_score(self): 
-        moved_set = set(self.moved_ids)
+        moved_set = set([move[1]['freepik_id'] for move in self.moves])
         assert moved_set <= self.ids_set, "The moved icons should be a subset of all icons."
 
         # quadratically reduce the score when some icons are not touched by either of the players
@@ -290,7 +295,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         icon_element = player.pic_state.get_element_by_id(obj)
         if icon_element:
             player.pic_state.update(obj, int(x), int(y))
-            self.metric_holder.add_move(icon_element)
+            self.metric_holder.add_move((player, icon_element))
 
         distance_after_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
 
@@ -415,11 +420,14 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         consistency_score = self.metric_holder.compute_consistency_score()
         coverage_score = self.metric_holder.compute_coverage_score()
 
+        final_score = distance_score * consistency_score * coverage_score 
+
         scores = {
                     "distance_sum": distance_sum, 
                     "distance_score": distance_score,
                     "consistency_score": consistency_score,    
-                    "coverage_score": coverage_score
+                    "coverage_score": coverage_score,
+                    "final_score": final_score
                 }
         print("in compute_episode_score")
         print(scores)
@@ -428,7 +436,6 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
 
     def _on_after_game(self):
         scores = self.compute_episode_score()
-        final_score = float(scores['distance_score']) * float(scores['consistency_score']) * float(scores['coverage_score'])
 
         # log_key to `interaction.json`
         self.log_key(METRIC_ABORTED, int(self.abort))
@@ -438,14 +445,15 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         self.log_key('distance_score', scores['distance_score'])
         self.log_key('consistency_score', scores['consistency_score'])
         self.log_key('coverage_score', scores['coverage_score'])
-        self.log_key('final_score', final_score)
+        self.log_key('final_score', scores['final_score'])
         
         # log to display in transcript``
+        self.log_to_self("log metric", f"Success: {self.success}; Aborted: {self.abort}; Lose: {self.lose}")
         self.log_to_self("log metric", f"total distance:\n{ round(scores['distance_sum'], 2) }") 
         self.log_to_self("log metric", f"distance score:\n{ round(scores['distance_score'], 2) }") 
         self.log_to_self("log metric", f"consistency score:\n{ round(scores['consistency_score'], 2) }")
         self.log_to_self("log metric", f"coverage score:\n{ round(scores['coverage_score'], 2) }")       
-        self.log_to_self("log metric", f"final score:\n{ round(final_score, 2) }")       
+        self.log_to_self("log metric", f"final score:\n{ round(scores['final_score'], 2) }")       
 
 
 class MultiModalCleanUpScorer(GameScorer):
@@ -478,6 +486,9 @@ class MultiModalCleanUpScorer(GameScorer):
         # print(json.dumps(interactions, indent=4))
         # dummy implementation
         self.log_episode_score(BENCH_SCORE, interactions['final_score'])
+        self.log_episode_score('distance_score', interactions['distance_score'])
+        self.log_episode_score('consistency_score', interactions['consistency_score'])
+        self.log_episode_score('coverage_score', interactions['coverage_score'])
 
 
 

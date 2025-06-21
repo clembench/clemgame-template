@@ -178,13 +178,6 @@ class PicState:
             return 0.0
         return sum(distances.values())
     
-    def worst_distance_sum(self):
-        """
-        Worst case scenario: all identical objects are at opposite corners of the grid.
-        """
-        max_distance = ((self.bg_width - 1) ** 2 + (self.bg_height - 1) ** 2) ** 0.5
-        return max_distance * len(self.state)
-    
     def distance_score(self, other):
         """
         Returns a score based on the distance sum compared to the worst case scenario.
@@ -193,8 +186,18 @@ class PicState:
             raise ValueError("Comparison is only supported between two PicState instances")
         
         distance_sum = self.distance_sum(other)
-        worst_case = self.worst_distance_sum()
-        min_max_normed = distance_sum / worst_case
+        expected_distance_sum = self.expected_total_distance()
+        min_max_normed = distance_sum / expected_distance_sum
+        return max(1 - min_max_normed, 0)
         return (1 - min_max_normed) ** 4
-        # return 1 - (distance_sum / worst_case)
     
+
+    def expected_total_distance(self):
+        """
+        Returns the expected total distance for a given number of objects, 
+        when they are randomly scattered on a background picture.
+        """
+        avg_x_dist = (self.bg_width ** 2 - 1) / (3 * self.bg_width)
+        avg_y_dist = (self.bg_height ** 2 - 1) / (3 * self.bg_height)
+        avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
+        return avg_dist * len(self.state)
