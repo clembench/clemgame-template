@@ -24,14 +24,14 @@ class Cleaner(Player):
         super().__init__(model)
         self._custom_responses = [
             "say(Put C in the first row and eigth column.)",
-            # "move(C,1,1)",
-            # "say(Let's move C to the top left corner.)",
-            # "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
-            # "Let's gooo! `say(You are the best cleaner ever!)`",
-            # "move(C, 1, 1",
-            # "say(Move C to (1, 1).)",
-            # "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
-            # "haha, I love cleaning!",
+            "move(C,1,1)",
+            "say(Let's move C to the top left corner.)",
+            "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
+            "Let's gooo! `say(You are the best cleaner ever!)`",
+            "move(C, 1, 1",
+            "say(Move C to (1, 1).)",
+            "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
+            "haha, I love cleaning!",
             ]
         self.grid = None  # This will be set in the game master
         self._relay_message = ""
@@ -64,6 +64,13 @@ class CleanUpMaster(DialogueGameMaster):
 
     def _on_setup(self, **game_instance):
         self.game_instance = game_instance
+
+        # Compile all regex patterns used in the game instance
+        self.message_pattern = re.compile(self.game_instance['message_pattern'])
+        self.move_pattern = re.compile(self.game_instance['move_pattern'])
+        self.restricted = []
+        for restricted in self.game_instance['restricted']:
+            self.restricted.append(re.compile(restricted))
 
         self.player_1 = Cleaner(self.player_models[0])
         self.player_1.grid = GameGrid(self.game_instance['background'])
@@ -112,12 +119,14 @@ class CleanUpMaster(DialogueGameMaster):
         self.log_to_self('player_response', response)
         # TODO: for now, we will just remove backticks and newlines
         response = response.replace('`', '').replace('\n', ' ').strip()
-        move_match = re.compile(self.game_instance['move_pattern']).match(response)
-        message_match = re.compile(self.game_instance['message_pattern']).match(response)
-        if sum([1 for m in [move_match, message_match] if m is not None]) > 1:
+        move_matches = list(self.move_pattern.finditer(response))
+        message_matches = list(self.message_pattern.finditer(response))
+        if len(move_matches) + len(message_matches) > 1:
             self.log_to_self('parse_error', f"Invalid response format: {response}")
             logger.warning(f"Response '{response}' contains several commands.")
             raise ParseError(reason=self.game_instance["parse_errors"]["several_commands"], response=response) #, info="Response matches both move and message patterns, which is invalid.")
+        move_match = move_matches[0] if move_matches else None
+        message_match = message_matches[0] if message_matches else None
         if move_match:
             self._check_head_tail(move_match)
             return response
@@ -134,11 +143,11 @@ class CleanUpMaster(DialogueGameMaster):
                 self.terminate = True
                 self.log_to_self('success', 'true')
             else:
-                for restricted in self.game_instance['restricted']:
-                    restricted_match = re.compile(restricted).search(message_match.group('message'))
+                for restricted_pattern in self.restricted:
+                    restricted_match = restricted_pattern.search(message_match.group('message'))
                     if restricted_match:
-                        self.log_to_self('rule_violation', f"Response violates restriction: {restricted}")
-                        logger.warning(f"Response '{response}' violates restriction: {restricted}")
+                        self.log_to_self('rule_violation', f"Response violates restriction: {restricted_pattern}")
+                        logger.warning(f"Response '{response}' violates restriction: {restricted_pattern}")
                         raise ParseError(reason=self.game_instance["parse_errors"]["restriction"], response=response)
             return response
         else:
