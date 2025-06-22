@@ -86,31 +86,32 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                 game_instance['state2'] = grid2.object_list()
                 grid1.show_coords = show_coords
                 grid2.show_coords = show_coords
-                game_instance['p1_initial_prompt'] = self.initial_prompt(grid1, max_penalties=10) + self.load_template('resources/initial_prompts/p1_start')
-                game_instance['p2_initial_prompt'] = self.initial_prompt(grid2, max_penalties=10) + self.load_template('resources/initial_prompts/p2_start')
-                game_instance['new_turn'] = self.load_template('resources/intermittent_prompts/new_turn')
-                game_instance['new_turn_move'] = self.load_template('resources/intermittent_prompts/new_turn_move')
-                game_instance['invalid_response'] = self.load_template('resources/intermittent_prompts/invalid_response')
-                game_instance['penalty_message'] = self.load_template('resources/intermittent_prompts/penalty_message')
-                game_instance['penalty_counter'] = self.load_template('resources/intermittent_prompts/penalty_counter')
-                game_instance['message_relay'] = self.load_template('resources/intermittent_prompts/message_relay')
-                game_instance['move_pattern'] = '(?P<head>.*)move\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)'
-                game_instance['message_pattern'] = '(?P<head>.*)say\((?P<message>[^)]+)\)(?P<tail>.*)'
-                # Currently just checking for the word "finished" in the message
-                # game_instance['terminate_question'] ='^say(finished?)$'
-                game_instance['terminate_question'] = 'finished?'
-                # game_instance['terminate_answer'] = '^say(finished)$'
-                game_instance['terminate_answer'] = 'finished!'
-                game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
-                game_instance['parse_errors'] = self.load_json('resources/intermittent_prompts/parse_errors.json')[LANGUAGE]
+                game_instance['p1_initial_prompt'] = self.initial_prompt(grid1, language=LANGUAGE, max_penalties=10) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
+                game_instance['p2_initial_prompt'] = self.initial_prompt(grid2, language=LANGUAGE, max_penalties=10) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
+                game_instance['new_turn'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn')
+                game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
+                game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response')
+                game_instance['penalty_message'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_message')
+                game_instance['penalty_counter'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_counter')
+                game_instance['message_relay'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/message_relay')
 
-    def initial_prompt(self, grid: GameGrid, max_penalties: int = 10) -> str:
+                keywords = self.load_json('resources/keywords.json')[LANGUAGE]
+                game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"
+                game_instance['message_pattern'] = f"(?P<head>.*){keywords['message_command']}\((?P<message>[^)]+)\)(?P<tail>.*)"
+                game_instance['terminate_question'] = keywords['terminate_question']    # 'finished?'
+                game_instance['terminate_answer'] = keywords['terminate_answer']        # 'finished!'
+                game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
+                game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
+
+                game_instance['move_messages'] = self.load_json('resources/move_messages.json')[LANGUAGE]
+
+    def initial_prompt(self, grid: GameGrid, language: str, max_penalties: int = 10) -> str:
         """
         Returns the initial prompt for the game.
         :param grid: The game grid
         :return: The initial prompt string
         """
-        initial_prompt = Template(self.load_template('resources/initial_prompts/initial_prompt_dumb'))
+        initial_prompt = Template(self.load_template(f'resources/initial_prompts/{language}/initial_prompt_dumb'))
         return initial_prompt.substitute(
             grid=str(grid),
             objects=grid.object_string(),

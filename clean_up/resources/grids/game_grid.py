@@ -9,16 +9,8 @@ DISTANCE_SCORE = "Distance Score"
 DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
 EXPECTED_DISTANCE_SCORE = "Expected Distance Score"
 
-move_messages = {}
-with open("resources/grids/move_messages.json", "r") as f:
-    messages = json.load(f)
-    for language in messages:
-        move_messages[language] = {}
-        for key in messages[language]:
-            move_messages[language][key] = Template(messages[language][key])
-
 class GameGrid:
-    def __init__(self, grid: str=None, language: str='en', object_string: str=None, show_coords: bool = False):
+    def __init__(self, grid: str=None, move_messages: dict=None, object_string: str=None, show_coords: bool = False):
         """
         Initializes the GameGrid class
         """
@@ -28,7 +20,7 @@ class GameGrid:
         self.objects = {}
         if object_string:
             self.place_objects(list(object_string))
-        self.language = language
+        self.move_messages = move_messages
         self.show_coords = show_coords
 
     def get_dimensions(self) -> tuple[int, int]:
@@ -179,31 +171,16 @@ class GameGrid:
         if obj in self.objects:
             old_x, old_y = self.objects[obj]
             if not (0 <= x < self.width and 0 <= y < self.height):
-                return False, move_messages[self.language]["out_of_bounds"].substitute(x=x, y=y)
+                return False, Template(self.move_messages["out_of_bounds"]).substitute(x=x, y=y)
             if check_empty and self.grid[y][x][-1] != EMPTY_SYMB:
-                return False, move_messages[self.language]["not_empty"].substitute(object=self.grid[y][x][-1], x=x, y=y)
+                return False, Template(self.move_messages["not_empty"]).substitute(object=self.grid[y][x][-1], x=x, y=y)
             self.grid[old_y][old_x] = self.grid[old_y][old_x][:-1]  # Remove the object from the old position
             self.grid[y][x].append(obj)  # Place the object at the new position
             self.objects[obj] = (x, y)
-            return True, move_messages[self.language]["successful"].substitute(object=obj, x=x, y=y, grid=str(self))
+            return True, Template(self.move_messages["successful"]).substitute(object=obj, x=x, y=y, grid=str(self))
         else:
-            return False, move_messages[self.language]["obj_not_found"].substitute(object=obj)
-        
-    def move_rel(self, obj, dx, dy, check_empty=True):
-        """
-        Moves an object relative to its current position.
-        :param obj: The object to move
-        :param dx: The change in x-coordinate
-        :param dy: The change in y-coordinate
-        """
-        if obj in self.objects:
-            old_x, old_y = self.objects[obj]
-            new_x = old_x + dx
-            new_y = old_y + dy
-            return self.move_abs(obj, new_x, new_y, check_empty)
-        else:
-            return False, move_messages["obj_not_found"].substitute(object=obj)
-        
+            return False, Template(self.move_messages["obj_not_found"]).substitute(object=obj)
+
     def get_position(self, obj: str):
         """
         Returns the position of the object on the grid.

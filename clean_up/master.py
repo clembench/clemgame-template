@@ -73,11 +73,11 @@ class CleanUpMaster(DialogueGameMaster):
             self.restricted.append(re.compile(restricted))
 
         self.player_1 = Cleaner(self.player_models[0])
-        self.player_1.grid = GameGrid(self.game_instance['background'])
+        self.player_1.grid = GameGrid(self.game_instance['background'], move_messages=self.game_instance['move_messages'])
         self.player_1.grid.set_objects(self.game_instance['state1'])
         self.player_1.grid.show_coords = self.game_instance['show_coords']
         self.player_2 = Cleaner(self.player_models[1])
-        self.player_2.grid = GameGrid(self.game_instance['background'])
+        self.player_2.grid = GameGrid(self.game_instance['background'], move_messages=self.game_instance['move_messages'])
         self.player_2.grid.set_objects(self.game_instance['state2'])
         self.player_2.grid.show_coords = self.game_instance['show_coords']
 
@@ -91,7 +91,7 @@ class CleanUpMaster(DialogueGameMaster):
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
         self.success = False    # True if game finished regularly
         self.terminate = False  # True if game is terminated because of rule violation or parse error
-        self.aborted = False  # True if game is aborted due to a rule violation or parse error
+        self.aborted = False    # True if game is aborted due to a rule violation or parse error
         self.penalties = 0      # Number of collectively accumulated penalties
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
@@ -127,6 +127,12 @@ class CleanUpMaster(DialogueGameMaster):
             raise ParseError(reason=self.game_instance["parse_errors"]["several_commands"], response=response) #, info="Response matches both move and message patterns, which is invalid.")
         move_match = move_matches[0] if move_matches else None
         message_match = message_matches[0] if message_matches else None
+        if player == self.player_1 and self.player_2._is_initial_call:
+            # In this case, the command needs to be a message
+            if not message_match:
+                self.log_to_self('parse_error', f"Invalid response: {response}")
+                logger.warning(f"Response '{response}' is not a valid message, first command must be a message.")
+                raise ParseError(reason=self.game_instance["parse_errors"]["invalid_start"], response=response)
         if move_match:
             self._check_head_tail(move_match)
             return response
