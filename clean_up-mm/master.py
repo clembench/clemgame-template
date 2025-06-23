@@ -5,6 +5,7 @@ import logging
 import numpy as np
 from typing import Dict, Tuple, List, Union
 from collections import defaultdict
+from string import Template
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, GameError, ParseError
@@ -24,10 +25,26 @@ class Cleaner(Player):
         self._custom_responses = ["say(Let's move the icon with a brain in a lightbulb.)", 
                                 "say(Hello)", 
                                 "move(A, 0, 0)"]
+        self._relay_message = ""
 
     def _custom_response(self, messages):
         response = self._custom_responses[np.random.randint(0, len(self._custom_responses))]
         return response
+    
+    def store_relay_message(self, message: str):
+        """
+        Store the relay message to add it to the next message.
+        """
+        self._relay_message = message
+
+    def __call__(self, context: Dict, memorize: bool = True) -> str:
+        """
+        adds the relay message to the context, then calls the super class __call__ method
+        """
+        if self._relay_message:
+            context['content'] = self._relay_message + context['content']
+            self._relay_message = ""
+        return super().__call__(context, memorize=memorize)
 
 class MetricHolder: 
     """
@@ -114,44 +131,44 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         #    and is responsible for moving icons + generate base64 encoded image
         # 2. load and set init_context for player 1
         # 3. init game state flags: success? abort? finished?
+        
+        self.game_instance = game_instance
 
-        self.max_rounds = self.experiment['max_rounds']
-        self.message_pattern = self.experiment['message_pattern']
-        self.move_pattern = self.experiment['move_pattern']
-        self.should_pass_turn = True
+        # Compile all regex patterns used in the game instance
+        self.message_pattern = re.compile(self.game_instance['message_pattern'])
+        self.move_pattern = re.compile(self.game_instance['move_pattern'])
+        # TODO: Check and implement restricted patterns for MM
+        # self.restricted = []
+        # for restricted in self.game_instance['restricted']:
+        #     self.restricted.append(re.compile(restricted))
+
+        self.player_1 = Cleaner(self.player_models[0])
+        self.player_2 = Cleaner(self.player_models[1] if len(self.player_models) > 1 else self.player_models[0])
+
+        background_path = self.game_instance['background']
+        self.player_1.pic_state = PicState(background_path, game_instance['state1'])
+        self.player_2.pic_state = PicState(background_path, game_instance['state2'])
+        
+        player_1_init_image = self.player_1.pic_state.draw()
+        player_1_init_context = self.__prep_text_and_image_prompt(self.game_instance['p1_initial_prompt'], 
+                                                                player_1_init_image, 
+                                                                content_only=False)
+        
+        self.add_player(self.player_1, initial_context=player_1_init_context)
+        self.add_player(self.player_2)
+        
+        self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
+        self.success = False    # True if game finished regularly
+        self.terminate = False  # True if game is terminated because of rule violation or parse error
+        self.aborted = False    # True if game is aborted due to a rule violation or parse error
+        self.penalties = 0      # Number of collectively accumulated penalties
+        self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
+        self.pass_turn = True
+        self.max_rounds = self.game_instance['max_rounds']
 
         n_icons = len(game_instance['state1'])
         freepik_id_set = set(ele['freepik_id'] for ele in game_instance['state1'])
         self.metric_holder = MetricHolder(n_icons, self.max_rounds, freepik_id_set, self)
-
-        self.player1 = Cleaner(self.player_models[0])
-        self.player2 = Cleaner(self.player_models[1] if len(self.player_models) > 1 else self.player_models[0])
-
-        background_path = self.experiment['background']
-        self.player1.pic_state = PicState(background_path, game_instance['state1'])
-        self.player2.pic_state = PicState(background_path, game_instance['state2'])
-        
-        # Temporary: bypass the template loaded by `instancegenerator.py` 
-        # in case I want to change the prompt without affecting the instance state
-        player1_init_text = self.load_template("resources/initial_prompts/player1").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
-        player1_init_image = self.player1.pic_state.draw()
-        player1_init_context = self.__prep_text_and_image_prompt(player1_init_text, 
-                                                                player1_init_image, 
-                                                                content_only=False)    
-        # [Question]: codebase
-        # in `__call__` of `/clemcore/clemgame/player.py`, 
-        # `initial_prompt` is glued to message history, preceding `initial_context`, 
-        # what's the use of sending a message without getting an reply? 
-        # is it a soft version of system message (role is still 'user'), can we set system message here?         
-        self.add_player(self.player1, initial_context=player1_init_context)
-        self.add_player(self.player2)
-
-        
-        self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
-        self.success = False    # True if game finished regularly
-        self.abort = False      # True if game is terminated because of rule violation or parse error        
-        self.lose = False       # True if game exceeds max_rounds
-
 
     # [Question]: codebase
     # I don't see how image_url is prepared in multimodal reference game
@@ -188,7 +205,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
                         }
                     ]
 
-    def __other_player(self) -> Player:
+    def _other_player(self) -> Player:
         """
         Returns the player who will be next.
         """
@@ -259,21 +276,20 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         to_inject = self.experiment['feedback_other_say'].replace("$$OTHER_PLAYER_SAY$$", response).replace("$$FEEDBACK_ENDING$$", self.experiment['feedback_ending'])
         
         if other_init:
-            # Temporary: bypass the template loaded by `instancegenerator.py` 
-            # in case I want to change the prompt without affecting the instance state
-            player2_init_text = self.load_template("resources/initial_prompts/player2").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
-            player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+            p2_initial_prompt = Template(self.game_instance['p2_initial_prompt']).substitute(
+                start_message=to_inject
+            )
 
-            player2_init_image = self.player2.pic_state.draw()
+            player_2_init_image = self.player_2.pic_state.draw()
 
-            player2_init_context = self.__prep_text_and_image_prompt(player2_init_text, 
-                                                                    player2_init_image, 
+            player_2_init_context = self.__prep_text_and_image_prompt(p2_initial_prompt, 
+                                                                    player_2_init_image, 
                                                                     content_only=True)            
             
-            self.set_context_for(self.__other_player(), player2_init_context)
+            self.set_context_for(self._other_player(), player_2_init_context)
         else:
             # feedback to the other player about current player's command (eg. the other player said this to you: <response>)
-            self.set_context_for(self.__other_player(), to_inject)
+            self.set_context_for(self._other_player(), to_inject)
         
         # indicate that the turn should be passed to the next player
         return True 
@@ -297,7 +313,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             player.pic_state.update(obj, int(x), int(y))
             self.metric_holder.add_move((player, icon_element))
 
-        distance_after_move = player.pic_state.get_pairwise_distance(self.__other_player().pic_state, toRound=True)
+        distance_after_move = player.pic_state.get_pairwise_distance(self._other_player().pic_state, toRound=True)
 
         # build the 1st part of feedback to current player (eg. the state of your pic is changed and attached)
         feedback_text = self.experiment['feedback_move']
@@ -317,19 +333,19 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         if other_init:
             # Temporary: bypass the template loaded by `instancegenerator.py` 
             # in case I want to change the prompt without affecting the instance state
-            player2_init_text = self.load_template("resources/initial_prompts/player2").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
-            player2_init_text = player2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
+            player_2_init_text = self.load_template("resources/initial_prompts/player_2").replace("$$MAX_ROUNDS$$", str(self.max_rounds))
+            player_2_init_text = player_2_init_text.replace("$$OTHER_PLAYER_COMMAND$$", to_inject)
 
-            player2_init_image = self.player2.pic_state.draw()
+            player_2_init_image = self.player_2.pic_state.draw()
 
-            player2_init_context = self.__prep_text_and_image_prompt(player2_init_text, 
-                                                                    player2_init_image, 
+            player_2_init_context = self.__prep_text_and_image_prompt(player_2_init_text, 
+                                                                    player_2_init_image, 
                                                                     content_only=True)            
             
-            self.set_context_for(self.__other_player(), player2_init_context)            
+            self.set_context_for(self._other_player(), player_2_init_context)            
         else: 
             # build the 2nd part of feedback to the next player
-            self.set_context_for(self.__other_player(), to_inject)
+            self.set_context_for(self._other_player(), to_inject)
 
         # logs        
         icon_info = player.pic_state.get_element_by_id(obj)
@@ -353,9 +369,9 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             - parsed_response: not really parsed, rather, **validated** response from the player
         """
         # Two cases: 
-            # 0. if just finished 1st prompt to player1, 
-            #    next up is 1st prompt to player2, 
-            #    need to inject player1's command into the init context for player2,
+            # 0. if just finished 1st prompt to player_1, 
+            #    next up is 1st prompt to player_2, 
+            #    need to inject player_1's command into the init context for player_2,
             # 1. if each player has been prompted at least once
         # in both cases: 
             # - build (part of) feedback to current player;
@@ -376,7 +392,7 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
             self.should_pass_turn = False
         
         # The next player hasn't been prompted, need to init their context
-        other_init = self.__other_player()._is_initial_call
+        other_init = self._other_player()._is_initial_call
 
         if parsed_response['isSay']:
             self.should_pass_turn = self.__process_say(player, parsed_response['response'], other_init=other_init)
@@ -412,8 +428,8 @@ class MultiModalCleanUpMaster(DialogueGameMaster):
         if self.abort or self.lose:
             return {"distance_sum": float('inf'), "distance_score": 0, "consistency_score": 0, "coverage_score": 0}
 
-        p1 = self.player1.pic_state
-        p2 = self.player2.pic_state
+        p1 = self.player_1.pic_state
+        p2 = self.player_2.pic_state
         distance_sum = p1.distance_sum(p2)
         distance_score = p1.distance_score(p2)
 

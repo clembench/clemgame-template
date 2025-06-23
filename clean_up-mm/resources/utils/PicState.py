@@ -28,6 +28,7 @@ class PicState:
             entry['img'] = Image.open(BytesIO(response.content)) 
 
         # Load background image and get dimensions
+        # Output the current working directory
         self.bg_img = Image.open(self.background_path)
         self.bg_width, self.bg_height = self.bg_img.size
 

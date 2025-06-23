@@ -9,8 +9,7 @@ import ast
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
-from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
-    # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 # from clemcore.utils import file_utils, string_utils
 from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE, INITIAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE
 
@@ -227,10 +226,10 @@ class CleanUpMaster(DialogueGameMaster):
                 self.pass_turn = True
                 player.store_relay_message(Template(self.game_instance['message_relay']).substitute(message=message))
                 if player == self.player_1 and self.player_2._is_initial_call:
-                    initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
+                    p2_initial_prompt = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
                     )
-                    self.set_context_for(self.player_2, initial_prompt_p2)
+                    self.set_context_for(self.player_2, p2_initial_prompt)
                 else:
                     next_player_prompt = self._penalty_counter_message()
                     next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)

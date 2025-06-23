@@ -1,0 +1,9 @@
+{
+    "en": {
+        "head_tail": "Your message must not contain anything before or after the command!",
+        "several_commands": "Your message contains more than one command!",
+        "restriction": "Your message contains restricted content!",
+        "invalid_format": "Your message is not in the expected format!",
+        "invalid_start": "You must begin the game by sending a message to the other player!"
+    }
+}

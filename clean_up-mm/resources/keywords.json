@@ -1,0 +1,8 @@
+{
+    "en": {
+        "move_command": "move",
+        "message_command": "say",
+        "terminate_question": "finished?",
+        "terminate_answer": "finished!"
+    }
+}

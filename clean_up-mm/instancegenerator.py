@@ -14,6 +14,8 @@ import re
 import random
 import math
 import copy
+
+from string import Template
 from PIL import Image
 from typing import List
 
@@ -29,6 +31,8 @@ from clemcore.clemgame import GameInstanceGenerator
     * when abstract, randomly select 1 abstract category, from it select N icons
 - dimension 2: diff number of icons (N = 5, 9)
 """
+
+LANGUAGES = ['en']
 # number of instances per experiment
 # N_INSTANCES = 10 
 N_INSTANCES = 2
@@ -63,96 +67,124 @@ ICON_METADATA_PATH = "resources/icons/metadata.json"
 
 random.seed(73128361)  
 
-class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
+class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
     def __init__(self):
         super().__init__(os.path.dirname(__file__))
 
     def on_generate(self):
-        # for each experiment type, 
-            # 1. load background
+        for LANGUAGE in LANGUAGES:
+            # for each experiment type, 
+                # 1. load background
 
-            # 2. randomly choose N_ICONS categories of icons, 
-            #    and for each category, randomly choose 1 of the icons
+                # 2. randomly choose N_ICONS categories of icons, 
+                #    and for each category, randomly choose 1 of the icons
 
-            # 3. shuffle the selected icons, 
-            #    assemble two state per instance: [ { id, path, coord }, .. ]
+                # 3. shuffle the selected icons, 
+                #    assemble two state per instance: [ { id, path, coord }, .. ]
 
-        for icon_type, icon_type_config in ICON_TYPE_CONFIGS.items():
-            for icon_num in ICON_NUM_OPTIONS:
-                config = copy.deepcopy(icon_type_config)
-                config = {key: icon_num if val == "$$ICON_NUM$$" else val for key, val in config.items() }
-                e = f"{icon_type}_{icon_num}"
-                
-                print(f"===== Adding experiment of type {e} =====")
-                print(config)
-
-                experiment = self.add_experiment(e)
-                experiment['max_rounds'] = icon_num * 3
-                experiment["player1_initial_prompt"] = self.load_template("resources/initial_prompts/player1")
-                experiment["player2_initial_prompt"] = self.load_template("resources/initial_prompts/player2")
-
-                experiment['feedback_say'] = self.load_template("resources/intermittent_prompts/feedback_say")
-                experiment['feedback_move'] = self.load_template("resources/intermittent_prompts/feedback_move")
-                experiment['feedback_other_say'] = self.load_template("resources/intermittent_prompts/feedback_other_say")
-                experiment['feedback_other_move'] = self.load_template("resources/intermittent_prompts/feedback_other_move")
-                experiment['feedback_ending'] = self.load_template("resources/intermittent_prompts/feedback_ending")
-
-                experiment['terminate_question'] = "say(finished?)"
-                experiment['terminate_answer'] = "say(finished!)"
-                
-                experiment['message_pattern'] = "say\\((?P<message>[^)]+)\\)"
-                experiment['move_pattern'] = "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)"
-
-                background_path = self._get_random_file(os.path.join("resources", "backgrounds"), n=1)[0]
-                experiment["background"] = background_path
-
-                bg_img = Image.open(background_path)
-                bg_size = bg_img.size
-
-                category = config["category"]
-                n_subcategories = config["n_subcategories"]
-                n_icons_per_subcategory = config["n_icons_per_subcategory"]
-
-                print(f"Category: {category}, n_subcategories: {n_subcategories}, n_icons_per_subcategory: {n_icons_per_subcategory}")
-
-                metadata = self.load_json(ICON_METADATA_PATH)
-
-                target_id = 0
-                while target_id < N_INSTANCES:
-
-                    assert n_subcategories <= len(metadata[category]), \
-                        f"n_subcategories ({n_subcategories}) must be less than or equal to the number of subcategories in {category} ({len(metadata[category])})"
-
-                    subcategories = random.sample(list(metadata[category].keys()), n_subcategories)
-
-                    # [ {id, name, url}, ... ]
-                    chosen_icons = []
-                    for sub in subcategories:
-                        assert n_icons_per_subcategory <= len(metadata[category][sub]), \
-                            f"n_icons_per_subcategory ({n_icons_per_subcategory}) must be less than or equal to the number of icons in subcategory {sub} ({len(metadata[category][sub])})"
-                        
-                        for icon in random.sample(metadata[category][sub], n_icons_per_subcategory):
-                            chosen_icons.append(icon)
-                
-                    # chosen_icons = [icon
-                    #                 for sub in subcategories 
-                    #                     for icon in random.sample(metadata[category][sub], n_icons_per_subcategory) 
-                    # ]
-
-                    # icon_sub_dirs = self._get_random_subdir(os.path.join("resources", "icons", category), 
-                    #                                         n_subcategories)
+            for icon_type, icon_type_config in ICON_TYPE_CONFIGS.items():
+                for icon_num in ICON_NUM_OPTIONS:
+                    config = copy.deepcopy(icon_type_config)
+                    config = {key: icon_num if val == "$$ICON_NUM$$" else val for key, val in config.items() }
+                    e = f"{icon_type}_{icon_num}"
                     
-                    # icon_paths = [f for d in icon_sub_dirs for f in self._get_random_file(d)]
+                    print(f"===== Adding experiment of type {e} =====")
+                    print(config)
 
-                    # [ {id, coord, name, url, freepik_id} ]
-                    state1 = self._get_random_icon_state(chosen_icons, bg_size)
-                    state2 = self._get_random_icon_state(chosen_icons, bg_size)
+                    experiment = self.add_experiment(e)
 
-                    game_instance = self.add_game_instance(experiment, target_id)
-                    game_instance["state1"] = state1
-                    game_instance["state2"] = state2
-                    target_id += 1
+                    for instance_id in range(N_INSTANCES):
+                        game_instance = self.add_game_instance(experiment, instance_id)
+
+                        game_instance['max_rounds'] = icon_num * 3
+                        game_instance['max_penalties'] = icon_num * 2
+                        # TODO: add penalties to initial prompt
+                        game_instance["p1_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
+                        game_instance["p2_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
+                        game_instance['new_turn'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/new_turn")
+                        game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
+                        game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response')
+                        game_instance['penalty_message'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_message')
+                        game_instance['penalty_counter'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_counter')
+                        game_instance['message_relay'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/message_relay')
+
+                        keywords = self.load_json('resources/keywords.json')[LANGUAGE]
+                        game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"
+                        game_instance['message_pattern'] = f"(?P<head>.*){keywords['message_command']}\((?P<message>[^)]+)\)(?P<tail>.*)"
+                        game_instance['terminate_question'] = keywords['terminate_question']    # 'finished?'
+                        game_instance['terminate_answer'] = keywords['terminate_answer']        # 'finished!'
+                        game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
+                        game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
+
+                        # This is message_relay
+                        game_instance['feedback_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_say")
+                        # "The state of your picture is updated and attached."
+                        game_instance['feedback_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_move")
+                        # new_turn
+                        game_instance['feedback_other_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_say")
+                        # new_turn_move
+                        game_instance['feedback_other_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_move")
+                        # "Now, please give your command."
+                        game_instance['feedback_ending'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_ending")
+
+                        keywords = self.load_json('resources/keywords.json')[LANGUAGE]
+                        game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"
+                        game_instance['message_pattern'] = f"(?P<head>.*){keywords['message_command']}\((?P<message>[^)]+)\)(?P<tail>.*)"
+                        game_instance['terminate_question'] = keywords['terminate_question']    # 'finished?'
+                        game_instance['terminate_answer'] = keywords['terminate_answer']        # 'finished!'
+                        game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
+                        game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
+                        # game_instance['terminate_question'] = "say(finished?)"
+                        # game_instance['terminate_answer'] = "say(finished!)"
+                        
+                        # game_instance['message_pattern'] = "say\\((?P<message>[^)]+)\\)"
+                        # game_instance['move_pattern'] = "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)"
+
+                        background_path = self._get_random_file(os.path.join("resources", "backgrounds"), n=1)[0]
+                        game_instance["background"] = background_path
+
+                        bg_img = Image.open(background_path)
+                        bg_size = bg_img.size
+
+                        category = config["category"]
+                        n_subcategories = config["n_subcategories"]
+                        n_icons_per_subcategory = config["n_icons_per_subcategory"]
+
+                        print(f"Category: {category}, n_subcategories: {n_subcategories}, n_icons_per_subcategory: {n_icons_per_subcategory}")
+
+                        metadata = self.load_json(ICON_METADATA_PATH)
+
+                        assert n_subcategories <= len(metadata[category]), \
+                            f"n_subcategories ({n_subcategories}) must be less than or equal to the number of subcategories in {category} ({len(metadata[category])})"
+
+                        subcategories = random.sample(list(metadata[category].keys()), n_subcategories)
+
+                        # [ {id, name, url}, ... ]
+                        chosen_icons = []
+                        for sub in subcategories:
+                            assert n_icons_per_subcategory <= len(metadata[category][sub]), \
+                                f"n_icons_per_subcategory ({n_icons_per_subcategory}) must be less than or equal to the number of icons in subcategory {sub} ({len(metadata[category][sub])})"
+                            
+                            for icon in random.sample(metadata[category][sub], n_icons_per_subcategory):
+                                chosen_icons.append(icon)
+                    
+                        # chosen_icons = [icon
+                        #                 for sub in subcategories 
+                        #                     for icon in random.sample(metadata[category][sub], n_icons_per_subcategory) 
+                        # ]
+
+                        # icon_sub_dirs = self._get_random_subdir(os.path.join("resources", "icons", category), 
+                        #                                         n_subcategories)
+                        
+                        # icon_paths = [f for d in icon_sub_dirs for f in self._get_random_file(d)]
+
+                        # [ {id, coord, name, url, freepik_id} ]
+                        state1 = self._get_random_icon_state(chosen_icons, bg_size)
+                        state2 = self._get_random_icon_state(chosen_icons, bg_size)
+
+                        game_instance["state1"] = state1
+                        game_instance["state2"] = state2
 
     def _get_random_file(self, directory, n=1, file_extension='png') -> List[str]: 
         files = [f for f in os.listdir(directory) if f.lower().endswith(file_extension)]
@@ -219,4 +251,4 @@ class CleanUPMultiModalInstanceGenerator(GameInstanceGenerator):
 
 
 if __name__ == '__main__':
-    CleanUPMultiModalInstanceGenerator().generate()
+    CleanUpMultiModalInstanceGenerator().generate()
