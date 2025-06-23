@@ -1,15 +1,23 @@
 import os.path
-from typing import Dict, List
+from typing import Dict, Tuple, List, Union
 import logging
 import numpy as np
 from string import Template
 import re
+import time
+import shutil
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 # from clemcore.utils import file_utils, string_utils
-from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE, INITIAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE
+from resources.utils.PicState import PicState, png_to_base64
+
+INITIAL_DISTANCE = "Initial Distance"
+TOTAL_DISTANCE = "Total Distance"
+DISTANCE_SCORE = "Distance Score"
+DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
+EXPECTED_DISTANCE_SCORE = "Expected Distance Score"
 
 logger = logging.getLogger(__name__)
 
@@ -20,28 +28,23 @@ class Cleaner(Player):
     def __init__(self, model: Model):
         super().__init__(model)
         self._custom_responses = [
-            "say(Put C in the first row and eigth column.)",
-            "move(C,1,1)",
-            "say(Let's move C to the top left corner.)",
-            "I'm ready to go! Let's start by agreeing on a common goal state. I suggest we move all objects to the top-left corner in a specific order. Let's start by moving 'C' to the top-left corner. `move(C, 5, 5)`",
-            "Let's gooo! `say(You are the best cleaner ever!)`",
-            "move(C, 1, 1",
-            "say(Move C to (1, 1).)",
-            "move(C, 1, 1) say(I did it! C is now in the top-left corner.)",
-            "haha, I love cleaning!",
+            "say(Let's move the icon that looks like a smartphone with a colorful screen!)",
+            "move(A, 50, 50)"
             ]
-        self.grid = None  # This will be set in the game master
+        self.pic_state = None  # This will be set in the game master
         self._relay_message = ""
+        self._relay_image = None 
 
     def _custom_response(self, messages):
         response = self._custom_responses[np.random.randint(0, len(self._custom_responses))]
         return response
     
-    def store_relay_message(self, message: str):
+    def store_relay_message(self, message: str, image: List[str] = None):
         """
         Store the relay message to add it to the next message.
         """
         self._relay_message = message
+        self._relay_image = image
 
     def __call__(self, context: Dict, memorize: bool = True) -> str:
         """
@@ -49,10 +52,28 @@ class Cleaner(Player):
         """
         if self._relay_message:
             context['content'] = self._relay_message + context['content']
-            self._relay_message = ""
-        return super().__call__(context, memorize=memorize)
+        if self._relay_image:
+            context['image'] = self._relay_image
+        if 'image' in context:
+            # If the context contains an image, we log it
+            self.log_image(context['image'])
+        response = super().__call__(context, memorize=memorize)
+        self._relay_message = ""
+        self._relay_image = None
+        return response
+    
+    def log_image(self, image: str):
+        """
+        image: a list of image paths. Should have only one image.
+        """
+        assert self._game_recorder is not None, "Cannot log player event, because game_recorder has not been set"
+        assert len(image) == 1, "Image should be a list with one image path"
+        assert os.path.exists(image[0]), f"Image path {image[0]} does not exist"
+        content = png_to_base64(image[0])
+        action = {'type': 'send message', 'label': 'base64_image', 'content': content}
+        self._game_recorder.log_event(from_='GM', to=self.name, action=action)
 
-class CleanUpMaster(DialogueGameMaster):
+class MultimodalCleanUpMaster(DialogueGameMaster):
     """
     Template class for game master.
     """
@@ -65,24 +86,20 @@ class CleanUpMaster(DialogueGameMaster):
         # Compile all regex patterns used in the game instance
         self.message_pattern = re.compile(self.game_instance['message_pattern'])
         self.move_pattern = re.compile(self.game_instance['move_pattern'])
+        # TODO: in mm, only '[0-9]+' is restricted right now
         self.restricted = []
         for restricted in self.game_instance['restricted']:
             self.restricted.append(re.compile(restricted))
 
+        background_path = self.game_instance['background']
         self.player_1 = Cleaner(self.player_models[0])
-        self.player_1.grid = GameGrid(self.game_instance['background'], move_messages=self.game_instance['move_messages'])
-        self.player_1.grid.set_objects(self.game_instance['state1'])
-        self.player_1.grid.show_coords = self.game_instance['show_coords']
+        self.player_1.pic_state = PicState(background_path, game_instance['state1'], img_prefix='player_1_', move_messages=game_instance['move_messages'])
         self.player_2 = Cleaner(self.player_models[1])
-        self.player_2.grid = GameGrid(self.game_instance['background'], move_messages=self.game_instance['move_messages'])
-        self.player_2.grid.set_objects(self.game_instance['state2'])
-        self.player_2.grid.show_coords = self.game_instance['show_coords']
+        self.player_2.pic_state = PicState(background_path, game_instance['state2'], img_prefix='player_2_', move_messages=game_instance['move_messages'])
 
-        self.initial_grid_string = "Player 1 grid:\n```\n" + self.player_1.grid.__str__(show_coords=self.game_instance['show_coords']) + "```\nPlayer 2 grid:\n```\n" + self.player_2.grid.__str__(show_coords=self.game_instance['show_coords']) + "```"
+        # TODO: set initial distance here
 
-        self.initial_distance = self.player_1.grid.distance_sum(self.player_2.grid)
-
-        self.add_player(self.player_1, initial_context=self.game_instance['p1_initial_prompt'])
+        self.add_player(self.player_1)
         self.add_player(self.player_2)
 
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
@@ -93,6 +110,14 @@ class CleanUpMaster(DialogueGameMaster):
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
         self.max_rounds = self.game_instance['max_rounds']
+
+        # TODO: Initialize MetricHolder
+
+    def _on_before_game(self):
+        """
+        Called before the game starts.
+        """
+        self.set_context_for(self.player_1, self.game_instance['p1_initial_prompt'], image=self.player_1.pic_state.draw())
 
     def _other_player(self) -> Player:
         """
@@ -178,12 +203,12 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        # time.sleep(3)
+        time.sleep(3)
         return self.pass_turn
 
     def _start_next_round(self) -> bool:
         """
-        :return: True, when it's the first player's turn to start a new round
+        return True, when it's the first player's turn to start a new round
         """
         if self.pass_turn:
             return self._current_player_idx == 0     
@@ -191,6 +216,13 @@ class CleanUpMaster(DialogueGameMaster):
             return False
 
     def _advance_game(self, player: Player, parsed_response: str):
+        """
+        We already know the response is valid, so we can process it.
+        In case of a move, we will try to update the PicState. 
+            If succesful, we generate a feedback message and pass the turn to the other player.
+            Otherwise, we will log the error, increment the penalty counter, and reprompt the player with a penalty message.
+        In case of a message, we will set the context for the other player and pass the turn.
+        """
         if not parsed_response:
             raise RuleViolationError
         match = self.move_pattern.match(parsed_response)
@@ -198,12 +230,13 @@ class CleanUpMaster(DialogueGameMaster):
             obj = match.group('obj')
             x = int(match.group('x'))
             y = int(match.group('y'))
-            success, message = player.grid.move_abs(obj, x, y, check_empty=True)
+            success, message, image = player.pic_state.move_abs(obj, x, y)
             self.pass_turn = success
+            self.set_context_for(player, message, image=image)
             if success:
                 # log the move message to the player and add it to the message history (without response)
                 self.log_to_self('valid move', message)
-                player.store_relay_message(message)
+                player.store_relay_message(message, image=image)
                 # turn is passed to the other player
                 next_player_prompt = self._penalty_counter_message()
                 next_player_prompt += self.game_instance["new_turn_move"]
@@ -220,12 +253,12 @@ class CleanUpMaster(DialogueGameMaster):
             if match:
                 message = match.group('message')
                 self.pass_turn = True
-                player.store_relay_message(Template(self.game_instance['message_relay']).substitute(message=message))
+                player.store_relay_message(self.game_instance['message_relay'])
                 if player == self.player_1 and self.player_2._is_initial_call:
                     p2_initial_prompt = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
                     )
-                    self.set_context_for(self.player_2, p2_initial_prompt)
+                    self.set_context_for(self.player_2, p2_initial_prompt, image=self.player_2.pic_state.draw())
                 else:
                     next_player_prompt = self._penalty_counter_message()
                     next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)
@@ -269,30 +302,31 @@ class CleanUpMaster(DialogueGameMaster):
         return 0
 
     def _on_after_game(self):
-        grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
-        self.log_key(INITIAL_DISTANCE, self.initial_distance)
-        score_string = ""
-        for key, value in grid_scores.items():
-            self.log_key(key, value)
-            score_string += f"* {key}: {float(value):.2f}\n"
+        # remove tmp folder and all its contents
+        if os.path.exists('tmp'):
+            logger.info("Cleaning up temporary files...")
+            shutil.rmtree('tmp')
+        # grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
+        # self.log_key(INITIAL_DISTANCE, self.initial_distance)
+        # score_string = ""
+        # for key, value in grid_scores.items():
+        #     self.log_key(key, value)
+        #     score_string += f"* {key}: {float(value):.2f}\n"
 
-        self.log_key('Penalties', self.penalties)
-        self.log_key('Object Count', len(self.player_1.grid.objects))
-        self.log_key(METRIC_ABORTED, int(self.aborted))
-        self.log_key(METRIC_SUCCESS, int(self.success))
-        if self.initial_distance < grid_scores['Total Distance']:
-            self.log_key(METRIC_LOSE, 1)
-        else:
-            self.log_key(METRIC_LOSE, 0)
+        # self.log_key('Penalties', self.penalties)
+        # self.log_key('Object Count', len(self.player_1.grid.objects))
+        # self.log_key(METRIC_ABORTED, int(self.aborted))
+        # self.log_key(METRIC_SUCCESS, int(self.success))
+        # if self.initial_distance < grid_scores['Total Distance']:
+        #     self.log_key(METRIC_LOSE, 1)
+        # else:
+        #     self.log_key(METRIC_LOSE, 0)
 
-        logger.info(grid_scores)
+        # logger.info(grid_scores)
 
-        self.log_to_self('initial grids', f"Initial grids:\n{self.initial_grid_string}")
-        # Log the grids to show up in the transcript
-        self.log_to_self('grids', f"Player 1 grid:\n```\n{self.player_1.grid.__str__(show_coords=self.game_instance['show_coords'])}\n```\nPlayer 2 grid:\n```\n{self.player_2.grid.__str__(show_coords=self.game_instance['show_coords'])}```")
-        self.log_to_self('game_finished', f"* success: {self.success}\n* penalties: {self.penalties}\n* rounds: {self.current_round}\n* initial distance: {self.initial_distance:.2f}\n{score_string}* object count: {len(self.player_1.grid.objects)}\n* aborted: {self.aborted}\n* lose: {not self.success}")
+        # self.log_to_self('game_finished', f"* success: {self.success}\n* penalties: {self.penalties}\n* rounds: {self.current_round}\n* initial distance: {self.initial_distance:.2f}\n{score_string}* object count: {len(self.player_1.grid.objects)}\n* aborted: {self.aborted}\n* lose: {not self.success}")
 
-class CleanUpScorer(GameScorer):
+class MultimodalCleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
@@ -336,8 +370,8 @@ class SomeGameBenchmark(GameBenchmark):
         super().__init__(game_spec)
 
     def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return CleanUpMaster(self.game_name, self.game_path, experiment, player_models)
+        return MultimodalCleanUpMaster(self.game_name, self.game_path, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
-        return CleanUpScorer(self.game_name, experiment, game_instance)
+        return MultimodalCleanUpScorer(self.game_name, experiment, game_instance)
 

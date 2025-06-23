@@ -46,19 +46,19 @@ ICON_TYPE_CONFIGS = {
                 "n_subcategories": "$$ICON_NUM$$",
                 "n_icons_per_subcategory": 1,
             }, 
-            "similar": {  # maybe change to "normal_similar"
-                "category": "normal", 
-                "n_subcategories": 1,
-                "n_icons_per_subcategory": "$$ICON_NUM$$",
-            }, 
-            # across different sub-categories of abstract, 
-            # it's easy to distinguish the icons, 
-            # so we only need to select one sub-category,
-            "abstract": {  # maybe change to "abstract_similar"
-                "category": "abstract",
-                "n_subcategories": 1,
-                "n_icons_per_subcategory": "$$ICON_NUM$$",
-            }   
+            # "similar": {  # maybe change to "normal_similar"
+            #     "category": "normal", 
+            #     "n_subcategories": 1,
+            #     "n_icons_per_subcategory": "$$ICON_NUM$$",
+            # }, 
+            # # across different sub-categories of abstract, 
+            # # it's easy to distinguish the icons, 
+            # # so we only need to select one sub-category,
+            # "abstract": {  # maybe change to "abstract_similar"
+            #     "category": "abstract",
+            #     "n_subcategories": 1,
+            #     "n_icons_per_subcategory": "$$ICON_NUM$$",
+            # }   
         }
 
 ICON_METADATA_PATH = "resources/icons/metadata.json"
@@ -99,7 +99,7 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
                         game_instance['max_rounds'] = icon_num * 3
                         game_instance['max_penalties'] = icon_num * 2
-                        # TODO: add penalties to initial prompt
+                        game_instance['lenient'] = True
                         game_instance["p1_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
                         game_instance["p2_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
                         game_instance['new_turn'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/new_turn")
@@ -135,11 +135,8 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                         game_instance['terminate_answer'] = keywords['terminate_answer']        # 'finished!'
                         game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
                         game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
-                        # game_instance['terminate_question'] = "say(finished?)"
-                        # game_instance['terminate_answer'] = "say(finished!)"
-                        
-                        # game_instance['message_pattern'] = "say\\((?P<message>[^)]+)\\)"
-                        # game_instance['move_pattern'] = "move\\((?P<obj>[A-Z]),\\s*(?P<x>\\d+),\\s*(?P<y>\\d+)\\)"
+
+                        game_instance['move_messages'] = self.load_json('resources/move_messages.json')[LANGUAGE]
 
                         background_path = self._get_random_file(os.path.join("resources", "backgrounds"), n=1)[0]
                         game_instance["background"] = background_path

@@ -1,21 +1,33 @@
 import io
+import os
 import math
 import requests
 import base64
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+from string import Template
 
 from io import BytesIO
 from PIL import Image
 
+def png_to_base64(png_path):
+    """
+    Convert a PNG image to a base64 encoded string.
+    """
+    with open(png_path, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+    return f"data:image/png;base64,{encoded_string}"
+
 
 class PicState:
-    def __init__(self, background_path, state):
+    def __init__(self, background_path, state, img_prefix: str = None, move_messages: dict = None):
         """
         background_path: Path to the background image.
         state: [ { id, coord, name, url, freepik_id }, ... ]
                 each inner dictionary represents an icon with its properties.
         """
+        self.img_prefix = img_prefix
+        self.image_counter = 0
         self.background_path = background_path
         self.state = state
 
@@ -31,6 +43,8 @@ class PicState:
         # Output the current working directory
         self.bg_img = Image.open(self.background_path)
         self.bg_width, self.bg_height = self.bg_img.size
+
+        self.move_messages = move_messages
 
     def _draw_overlay(self, ax):
         # Load background image
@@ -78,7 +92,8 @@ class PicState:
 
     def draw(self, filename=None):       
         """
-        Return the base64 encoded image for LLM,
+        Return path to base64 encoded image for LLM:
+        f"data:image/png;base64,{image}"
         """ 
         # Create a gridspec with different proportions for the two subplots
         fig = plt.figure(figsize=(14, 6))
@@ -94,20 +109,44 @@ class PicState:
     
         plt.tight_layout()
 
-        # plt.savefig(filename, bbox_inches='tight', dpi=100)  
-        # plt.show()
-
-        # Save to buffer instead of file
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', dpi=100)
-        plt.close(fig)  # Close the figure to free memory
-
-        # Encode buffer to base64
-        buf.seek(0)
-        image_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        buf.close()
-
-        return image_base64        
+        # Save image to f'tmp/{self.img_prefix}pic_state.png'
+        if self.img_prefix is not None:
+            # create tmp directory if it does not exist
+            if not os.path.exists('tmp'):
+                os.makedirs('tmp')
+            filename = f'tmp/{self.img_prefix}pic_state_{self.image_counter}.png'
+            self.image_counter += 1
+            plt.savefig(filename, bbox_inches='tight', dpi=100)  
+            return [filename]
+        else:
+            raise ValueError("img_prefix is not set. Cannot save image without a prefix.")
+    
+    def move_abs(self, obj, x, y):
+        """
+        Move the object to the absolute coordinates (x, y).
+        Returns:
+            success: bool, action success status
+            message: str, message to be passed to the player
+            image: list, list of base64 encoded images to be displayed
+        """
+        if isinstance(x, str):
+            try:
+                x = int(x)
+            except ValueError:
+                raise ValueError(f"Invalid x-coordinate: {x}. It should be an integer.")
+        if isinstance(y, str):
+            try:
+                y = int(y)
+            except ValueError:
+                raise ValueError(f"Invalid x-coordinate: {y}. It should be an integer.")
+        element = self.get_element_by_id(obj)
+        if element is None:
+            return False, Template(self.move_messages["obj_not_found"]).substitute(object=obj), []
+        if x < 0 or x > self.bg_width or y < 0 or y > self.bg_height:
+            return False, Template(self.move_messages["out_of_bounds"]).substitute(object=obj, x=x, y=y), []
+        # Update the coordinates of the object
+        element['coord'] = (x, y)
+        return True, Template(self.move_messages["successful"]).substitute(object=obj, x=x, y=y), self.draw()
 
     def update(self, icon_id, X, Y):
         """

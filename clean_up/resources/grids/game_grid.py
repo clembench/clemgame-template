@@ -157,6 +157,9 @@ class GameGrid:
         :param obj: The object to move
         :param x: The x-coordinate to move to (0-9+)
         :param y: The y-coordinate to move to (0-9+)
+        Returns:
+            A tuple (success, message) where success is a boolean indicating if the move was successful,
+            and message is a string with the result of the move.
         """
         if isinstance(x, str):
             try:
