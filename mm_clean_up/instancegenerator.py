@@ -97,7 +97,7 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                     for instance_id in range(N_INSTANCES):
                         game_instance = self.add_game_instance(experiment, instance_id)
 
-                        game_instance['max_rounds'] = icon_num * 3
+                        game_instance['max_rounds'] = icon_num * 4
                         game_instance['max_penalties'] = icon_num * 2
                         game_instance['lenient'] = True
                         game_instance["p1_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')

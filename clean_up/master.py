@@ -82,7 +82,7 @@ class CleanUpMaster(DialogueGameMaster):
 
         self.initial_distance = self.player_1.grid.distance_sum(self.player_2.grid)
 
-        self.add_player(self.player_1, initial_context=self.game_instance['p1_initial_prompt'])
+        self.add_player(self.player_1)
         self.add_player(self.player_2)
 
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
@@ -93,6 +93,12 @@ class CleanUpMaster(DialogueGameMaster):
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
         self.max_rounds = self.game_instance['max_rounds']
+
+    def _on_before_game(self):
+        """
+        Set the initial context for the first player.
+        """
+        self.set_context_for(self.player_1, self.game_instance['p1_initial_prompt'])
 
     def _other_player(self) -> Player:
         """

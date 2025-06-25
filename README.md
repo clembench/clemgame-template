@@ -1,3 +1,27 @@
+# Transcribing Clean Up
+
+For transcribing clean up with markdown formatting and to display base64 encoded images, edit the transcript builder `clemcore/clemcore/clemgame/transcripts/builder.py` in the following way:
+After line 92, add
+```
+if "label" in event["action"] and event["action"]["label"] == "base64_image":
+    # the content is the raw base64 encoding of an image
+    content = event['action']['content']
+    transcript += f'  <img src="{content}" alt="Base64 Image"><br>\n'
+    continue
+```
+In line 93, replace
+```
+msg_raw = html.escape(f"{msg_content}").replace('\n', '<br/>')
+```
+with 
+```
+msg_raw = msg_content.strip() #.strip('`')
+while msg_raw.startswith('`') and msg_raw.endswith('`'):
+    # remove the code block markers
+    msg_raw = msg_raw[1:-1]
+msg_raw = markdown.markdown(msg_raw, extensions=['sane_lists', 'fenced_code'])
+```
+
 # Template for creating new `clemgames'
 
 This repository provides example code for starting to develop new games for the `clemcore' environment, as used in the `clembench' project.

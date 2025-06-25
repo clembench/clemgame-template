@@ -115,7 +115,7 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
 
     def _on_before_game(self):
         """
-        Called before the game starts.
+        Set the initial context for the first player.
         """
         self.set_context_for(self.player_1, self.game_instance['p1_initial_prompt'], image=self.player_1.pic_state.draw())
 
@@ -203,7 +203,7 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        time.sleep(3)
+        # time.sleep(3)
         return self.pass_turn
 
     def _start_next_round(self) -> bool:

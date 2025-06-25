@@ -151,7 +151,7 @@
     {
         "model_name": "gemma-3-27b-it",
         "backend": "openai_compatible",
-        "model_id": "google/gemma-3-27b-it:free",
+        "model_id": "google/gemma-3-27b-it",
         "release_date": "2025-03-12",
         "open_weight": true,
         "parameters": "27B",
