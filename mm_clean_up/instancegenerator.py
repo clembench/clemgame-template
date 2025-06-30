@@ -35,7 +35,7 @@ from clemcore.clemgame import GameInstanceGenerator
 LANGUAGES = ['en']
 # number of instances per experiment
 # N_INSTANCES = 10 
-N_INSTANCES = 2
+N_INSTANCES = 1
 # number of icons per instance; 2 is only for dev purpose
 ICON_NUM_OPTIONS = [2]
 # ICON_NUM_OPTIONS = [5, 9]
@@ -46,19 +46,19 @@ ICON_TYPE_CONFIGS = {
                 "n_subcategories": "$$ICON_NUM$$",
                 "n_icons_per_subcategory": 1,
             }, 
-            # "similar": {  # maybe change to "normal_similar"
-            #     "category": "normal", 
-            #     "n_subcategories": 1,
-            #     "n_icons_per_subcategory": "$$ICON_NUM$$",
-            # }, 
-            # # across different sub-categories of abstract, 
-            # # it's easy to distinguish the icons, 
-            # # so we only need to select one sub-category,
-            # "abstract": {  # maybe change to "abstract_similar"
-            #     "category": "abstract",
-            #     "n_subcategories": 1,
-            #     "n_icons_per_subcategory": "$$ICON_NUM$$",
-            # }   
+            "similar": {  # maybe change to "normal_similar"
+                "category": "normal", 
+                "n_subcategories": 1,
+                "n_icons_per_subcategory": "$$ICON_NUM$$",
+            }, 
+            # across different sub-categories of abstract, 
+            # it's easy to distinguish the icons, 
+            # so we only need to select one sub-category,
+            "abstract": {  # maybe change to "abstract_similar"
+                "category": "abstract",
+                "n_subcategories": 1,
+                "n_icons_per_subcategory": "$$ICON_NUM$$",
+            }   
         }
 
 ICON_METADATA_PATH = "resources/icons/metadata.json"
@@ -118,15 +118,15 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                         game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
 
                         # This is message_relay
-                        game_instance['feedback_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_say")
+                        # game_instance['feedback_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_say")
                         # "The state of your picture is updated and attached."
-                        game_instance['feedback_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_move")
+                        # game_instance['feedback_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_move")
                         # new_turn
-                        game_instance['feedback_other_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_say")
+                        # game_instance['feedback_other_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_say")
                         # new_turn_move
-                        game_instance['feedback_other_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_move")
+                        # game_instance['feedback_other_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_move")
                         # "Now, please give your command."
-                        game_instance['feedback_ending'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_ending")
+                        # game_instance['feedback_ending'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_ending")
 
                         keywords = self.load_json('resources/keywords.json')[LANGUAGE]
                         game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"

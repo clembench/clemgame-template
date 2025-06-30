@@ -92,8 +92,7 @@ class PicState:
 
     def draw(self, filename=None):       
         """
-        Return path to base64 encoded image for LLM:
-        f"data:image/png;base64,{image}"
+        Return the path to the generated image in a list: [filepath]
         """ 
         # Create a gridspec with different proportions for the two subplots
         fig = plt.figure(figsize=(14, 6))
@@ -200,8 +199,6 @@ class PicState:
             for other_obj in other.state:
                 if other_obj['freepik_id'] == target_freepik_id:
                     dist = self._compute_euclidean_distance(obj['coord'], other_obj['coord'])
-                    if toRound: # for display as log in transcript
-                        dist = round(dist, 2)  
                     distances[obj['freepik_id']] = dist
         return dict(sorted(distances.items()))
 
@@ -218,19 +215,25 @@ class PicState:
             return 0.0
         return sum(distances.values())
     
-    def distance_score(self, other):
+    def distance_score(self, other, initial_distance=None):
         """
         Returns a score based on the distance sum compared to the worst case scenario.
         """
         if not isinstance(other, PicState):
             raise ValueError("Comparison is only supported between two PicState instances")
         
-        distance_sum = self.distance_sum(other)
-        expected_distance_sum = self.expected_total_distance()
-        min_max_normed = distance_sum / expected_distance_sum
-        return max(1 - min_max_normed, 0)
-        return (1 - min_max_normed) ** 4
-    
+        self_set = set(ele['freepik_id'] for ele in self.state)
+        other_set = set(ele['freepik_id'] for ele in other.state)
+        if not self_set == other_set:
+            raise ValueError("Grids must have the same objects for comparison")        
+        
+        if not initial_distance:
+            raise ValueError("Initial distance must be provided for score calculation")        
+        
+        expected_distance_score = self.expected_distance_score(other)
+        distance_reduction_score = self.distance_reduction_score(other, initial_distance)
+        distance_score = (expected_distance_score + distance_reduction_score) / 2
+        return distance_score
 
     def expected_total_distance(self):
         """
@@ -241,3 +244,22 @@ class PicState:
         avg_y_dist = (self.bg_height ** 2 - 1) / (3 * self.bg_height)
         avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
         return avg_dist * len(self.state)
+    
+    def expected_distance_score(self, other):
+        """
+        Returns the expected distance score based on the distance sum and the expected total distance.
+        """
+        distance_sum = self.distance_sum(other)
+        expected_distance = self.expected_total_distance()
+        if expected_distance <= 0:
+            raise ValueError("Expected distance must be a positive number")
+        return max(0, 1 - (distance_sum / expected_distance))  
+
+    def distance_reduction_score(self, other, initial_distance: float):
+        """
+        Returns the distance reduction score based on the distance sum and the initial distance.
+        """
+        distance_sum = self.distance_sum(other)
+        if initial_distance is None or initial_distance <= 0:
+            raise ValueError("Initial distance must be a positive number")
+        return max(0, 1 - (distance_sum / initial_distance))      
