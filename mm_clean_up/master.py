@@ -136,7 +136,6 @@ class MetricsHolder:
     def __init__(self, gm, player1, player2): 
         # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
         self.moves = []
-        self.shifts = 0
 
         self.gm = gm
         self.player1 = player1
@@ -212,8 +211,12 @@ class MetricsHolder:
 
     def compute_scores(self): 
         scores = {score_name: score_func() for score_name, score_func in self.score_func_registry.items()}
+
         auxiliaries = {score_name: aux_func() for score_name, aux_func in self.aux_func_registry.items()}
-        return scores, auxiliaries
+        
+        bench_score = {BENCH_SCORE: harmonic_mean(scores.values()) if scores[DISTANCE_SCORE] != 0 else 0}
+        
+        return scores, bench_score, auxiliaries
 
 class MultimodalCleanUpMaster(DialogueGameMaster):
     """
@@ -454,11 +457,14 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
             logger.info("Cleaning up temporary files...")
             shutil.rmtree('tmp')
 
-        scores, auxiliaries = self.metrics_holder.compute_scores()
-        score_string = ""
+        scores, bench_score, auxiliaries = self.metrics_holder.compute_scores()
+        scores_string = ""
         for key, val in scores.items(): 
             self.log_key(key, val)
-            score_string += f"* {key}: {float(val):.2f}\n"
+            scores_string += f"* {key}: {float(val):.2f}\n"
+
+        self.log_key(BENCH_SCORE, bench_score[BENCH_SCORE])
+        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score[BENCH_SCORE]):.2f}\n"
 
         aux_string = ""
         for key, val in auxiliaries.items(): 
@@ -470,7 +476,7 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
         self.log_key(METRIC_LOSE, int(lose))
         self.log_key(METRIC_SUCCESS, int(self.success))  
 
-        self.log_to_self('game_finished', f"* success: {self.success}\n* aborted: {self.aborted}\n* lose: {lose}\n-------\n{score_string}\n-------\n{aux_string}")            
+        self.log_to_self('game_finished', f"* success: {self.success}\n* aborted: {self.aborted}\n* lose: {lose}\n-------\n{scores_string}\n-------\n{bench_score_string}\n-------\n{aux_string}")            
 
 class MultimodalCleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
@@ -494,12 +500,12 @@ class MultimodalCleanUpScorer(GameScorer):
             else:
                 logger.warning(f"Key {key} not found in episode interactions, skipping logging.")
         
-        # The final score is a harmonic mean of all the scores we calculated
-        # one small score can significantly make the final score lower
         if episode_interactions[METRIC_SUCCESS]:
             if episode_interactions[METRIC_LOSE]:
                 self.log_episode_score(BENCH_SCORE, 0)
             else:
+                # The final score is a harmonic mean of all the scores we calculated
+                # one small score can significantly make the final score lower
                 bench_score = harmonic_mean(scores.values()) if scores[DISTANCE_SCORE] != 0 else 0
                 self.log_episode_score(BENCH_SCORE, bench_score)
         else:

@@ -252,7 +252,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the game should continue.
         """
-        if self.penalties > self.max_penalties:
+        if self.penalties >= self.max_penalties:
             self.log_to_self('end', 'Maximum number of penalties exceeded')
             self.aborted = True
             return False
