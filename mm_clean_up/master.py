@@ -79,6 +79,7 @@ COVERAGE_SCORE = "Coverage Score"
 PENALTY_SCORE = "Penalty Score"
 metrics_registry = [DISTANCE_SCORE, CONSISTENCY_SCORE, COVERAGE_SCORE, PENALTY_SCORE]
 
+# auxiliary metrics
 INITIAL_DISTANCE = "Initial Distance"
 TOTAL_DISTANCE = "Total Distance"
 DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
@@ -133,13 +134,13 @@ class MetricsHolder:
         the only case that is absolutely bad is when the distance sum at the end is bigger than randomly scatter objects, 
         in other cases we give the model a very small score. 
     """
-    def __init__(self, gm, player1, player2): 
+    def __init__(self, gm, player_1, player_2): 
         # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
         self.moves = []
 
         self.gm = gm
-        self.player1 = player1
-        self.player2 = player2
+        self.player_1 = player_1
+        self.player_2 = player_2
         self.score_func_registry = {
             DISTANCE_SCORE: lambda: self.compute_distance_score(self.gm.initial_distance),
             CONSISTENCY_SCORE: self.compute_consistency_score,
@@ -149,11 +150,11 @@ class MetricsHolder:
 
         self.aux_func_registry = {
             INITIAL_DISTANCE: lambda : self.gm.initial_distance,
-            TOTAL_DISTANCE: lambda: self.player1.pic_state.distance_sum(self.player2.pic_state), 
-            EXPECTED_DISTANCE_SCORE: lambda: self.player1.pic_state.expected_distance_score(self.player2.pic_state),
-            DISTANCE_REDUCTION_SCORE: lambda: self.player1.pic_state.distance_reduction_score(self.player2.pic_state, self.gm.initial_distance),
+            TOTAL_DISTANCE: lambda: self.player_1.pic_state.distance_sum(self.player_2.pic_state), 
+            EXPECTED_DISTANCE_SCORE: lambda: self.player_1.pic_state.expected_distance_score(self.player_2.pic_state),
+            DISTANCE_REDUCTION_SCORE: lambda: self.player_1.pic_state.distance_reduction_score(self.player_2.pic_state, self.gm.initial_distance),
             PENALTIES: lambda: self.gm.penalties, 
-            OBJECT_COUNT: lambda: len(self.player1.pic_state.state), 
+            OBJECT_COUNT: lambda: len(self.player_1.pic_state.state), 
             ROUNDS: lambda: self.gm.current_round
         }
 
@@ -165,7 +166,7 @@ class MetricsHolder:
 
     def compute_consistency_score(self): 
         max_shifts = self.gm.max_rounds * 2
-        min_shifts = len(self.player1.pic_state.state)
+        min_shifts = len(self.player_1.pic_state.state) - 1
 
         shifts = 0
         for i in range(1, len(self.moves)): 
@@ -176,7 +177,7 @@ class MetricsHolder:
                 shifts += 1
 
         # when the players don't cover all the icons, return the best score 1
-        # this error will be reflected in Coverage Score
+        # we will capture this error with another metric, Coverage Score
         if shifts < min_shifts: 
             return 1
 
@@ -186,12 +187,12 @@ class MetricsHolder:
         return 1 - normalized # we can use different function at this step
 
     def compute_coverage_score(self): 
-        id_set = set([ele['freepik_id'] for ele in self.player1.pic_state.state])
+        id_set = set([ele['freepik_id'] for ele in self.player_1.pic_state.state])
 
         moved_set1 = set()
         moved_set2 = set()
         for move in self.moves: 
-            if move[0] is self.player1: 
+            if move[0] is self.player_1: 
                 moved_set1.add(move[1]['freepik_id'])
             else: 
                 moved_set2.add(move[1]['freepik_id'])
@@ -203,7 +204,7 @@ class MetricsHolder:
         return coverage1 * coverage2
     
     def compute_distance_score(self, initial_distance):
-        return self.player1.pic_state.distance_score(self.player2.pic_state, initial_distance)
+        return self.player_1.pic_state.distance_score(self.player_2.pic_state, initial_distance)
 
     def compute_penalty_score(self): 
         normalized = self.gm.penalties / (self.gm.max_penalties + 1)
@@ -214,7 +215,14 @@ class MetricsHolder:
 
         auxiliaries = {score_name: aux_func() for score_name, aux_func in self.aux_func_registry.items()}
         
-        bench_score = {BENCH_SCORE: harmonic_mean(scores.values()) if scores[DISTANCE_SCORE] != 0 else 0}
+        if auxiliaries[EXPECTED_DISTANCE_SCORE] == 0: 
+            # worse than random, game lost, bench_score is 0
+            bench_score = 0
+        else: 
+            # The final score is a harmonic mean of all the scores we calculated
+            # one small score can significantly make the final score lower            
+            bench_score = harmonic_mean(scores.values())
+
         
         return scores, bench_score, auxiliaries
 
@@ -463,15 +471,21 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
             self.log_key(key, val)
             scores_string += f"* {key}: {float(val):.2f}\n"
 
-        self.log_key(BENCH_SCORE, bench_score[BENCH_SCORE])
-        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score[BENCH_SCORE]):.2f}\n"
+        self.log_key(BENCH_SCORE, bench_score)
+        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score):.2f}\n"
 
         aux_string = ""
         for key, val in auxiliaries.items(): 
             self.log_key(key, val)
             aux_string += f"* {key}: {float(val):.2f}\n"
 
-        lose = auxiliaries[TOTAL_DISTANCE] > auxiliaries[INITIAL_DISTANCE]
+        # old lose condition: the sum of end distance is bigger than sum of init distance 
+        # lose = auxiliaries[TOTAL_DISTANCE] > auxiliaries[INITIAL_DISTANCE]
+
+        # lose condition: the sum of end distance is bigger than sum of distance distance of two randomly scattered icon set
+        # making it harder to lose; rather than lose, it might be better to get a small bench_score than 0
+        lose = auxiliaries[EXPECTED_DISTANCE_SCORE] == 0
+
         self.log_key(METRIC_ABORTED, int(self.aborted))
         self.log_key(METRIC_LOSE, int(lose))
         self.log_key(METRIC_SUCCESS, int(self.success))  
@@ -491,12 +505,10 @@ class MultimodalCleanUpScorer(GameScorer):
 
     def compute_episode_scores(self, episode_interactions: Dict) -> float:
         """ Compute the episode score based on the interactions """
-        scores = {}
 
-        for key in metrics_registry:
+        for key in metrics_registry + auxiliaries_registry:
             if key in episode_interactions:
                 self.log_episode_score(key, episode_interactions[key])
-                scores[key] = episode_interactions[key]
             else:
                 logger.warning(f"Key {key} not found in episode interactions, skipping logging.")
         
@@ -504,10 +516,8 @@ class MultimodalCleanUpScorer(GameScorer):
             if episode_interactions[METRIC_LOSE]:
                 self.log_episode_score(BENCH_SCORE, 0)
             else:
-                # The final score is a harmonic mean of all the scores we calculated
-                # one small score can significantly make the final score lower
-                bench_score = harmonic_mean(scores.values()) if scores[DISTANCE_SCORE] != 0 else 0
-                self.log_episode_score(BENCH_SCORE, bench_score)
+                # the calculation is centralized in MetricsHolder
+                self.log_episode_score(BENCH_SCORE, episode_interactions[BENCH_SCORE])
         else:
             logger.info(f'aborted, logging Main Score as np.nan')
             self.log_episode_score(BENCH_SCORE, np.nan)
