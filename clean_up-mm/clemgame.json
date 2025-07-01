@@ -1,9 +1,0 @@
-{
-  "game_name": "clean_up_mm",
-  "description": "(Multimodal) Two players have to arrange objects according to a negotiated goal state",
-  "main_game": "clean_up",
-  "players": "two",
-  "image": "none",
-  "languages": ["en"],
-  "benchmark": []
-}

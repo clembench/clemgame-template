@@ -1,0 +1,7 @@
+{
+    "en": {
+        "successful": "Moved object '$object' to ($x,$y) successfully. Your updated image is attached.\n\n",
+        "out_of_bounds": "Invalid move: ($x,$y) is out of bounds. Please try again!\n\n",
+        "obj_not_found": "Invalid move: Your image has now object with ID '$object'. Please try again!\n\n"
+    }
+}

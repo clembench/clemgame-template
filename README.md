@@ -1,3 +1,56 @@
+# Transcribing Clean Up
+
+For transcribing clean up with markdown formatting and to display base64 encoded images, edit the transcript builder `clemcore/clemcore/clemgame/transcripts/builder.py` in the following way:
+First, at line 93, replace
+```
+msg_raw = html.escape(f"{msg_content}").replace('\n', '<br/>')
+```
+with 
+```
+msg_raw = msg_content.strip() #.strip('`')
+while msg_raw.startswith('`') and msg_raw.endswith('`'):
+    # remove the code block markers
+    msg_raw = msg_raw[1:-1]
+msg_raw = markdown.markdown(msg_raw, extensions=['sane_lists', 'fenced_code'])
+```
+
+Then, at line 136, add the following
+```
+elif isinstance(msg_content, str) and "label" in event["action"] and event["action"]["label"] == "base64_image":
+    transcript += f'''<div class="img-wrapper {class_name}" speaker="{speaker_attr}">
+        <img src="{msg_content}" alt="Base64 Image">
+    </div>
+    <br>
+    '''
+```
+
+In `utils/chat-two-tracks.css`, add the following: 
+```
+img {
+  max-width: 100%;
+  height: auto;
+  display: block; /* prevents overflow from inline behavior */
+}
+
+.img-wrapper {
+  position: relative;
+}
+
+.img-wrapper::before {
+  content: attr(speaker);
+  font-size: 0.8rem;
+  position: absolute;
+  bottom: 100%;
+  color: #888;
+  white-space: nowrap;
+  left: 50%;
+  transform: translateX(-50%);
+}
+```
+
+
+
+
 # Template for creating new `clemgames'
 
 This repository provides example code for starting to develop new games for the `clemcore' environment, as used in the `clembench' project.

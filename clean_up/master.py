@@ -1,16 +1,14 @@
-import os.path
-from typing import Dict, Tuple, List, Union
+import re
 import logging
+import os.path
+from statistics import harmonic_mean
+from typing import Dict, List
 import numpy as np
 from string import Template
-import re
-import time
-import ast
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
-from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, BENCH_SCORE, METRIC_LOSE # METRIC_REQUEST_COUNT, \
-    # METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS, BENCH_SCORE
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 # from clemcore.utils import file_utils, string_utils
 from resources.grids.game_grid import GameGrid, DISTANCE_SCORE, TOTAL_DISTANCE, INITIAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE
 
@@ -55,6 +53,160 @@ class Cleaner(Player):
             self._relay_message = ""
         return super().__call__(context, memorize=memorize)
 
+
+# metrics
+DISTANCE_SCORE = "Distance Score"
+CONSISTENCY_SCORE = "Consistency Score"
+COVERAGE_SCORE = "Coverage Score"
+PENALTY_SCORE = "Penalty Score"
+metrics_registry = [DISTANCE_SCORE, CONSISTENCY_SCORE, COVERAGE_SCORE, PENALTY_SCORE]
+
+# auxiliary metrics
+INITIAL_DISTANCE = "Initial Distance"
+TOTAL_DISTANCE = "Total Distance"
+DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
+EXPECTED_DISTANCE_SCORE = "Expected Distance Score"
+PENALTIES = "Penalties"
+OBJECT_COUNT = "Object Count"
+ROUNDS = "Rounds"
+auxiliaries_registry = [INITIAL_DISTANCE, TOTAL_DISTANCE, DISTANCE_REDUCTION_SCORE, EXPECTED_DISTANCE_SCORE, PENALTIES, OBJECT_COUNT, ROUNDS]
+
+class MetricsHolder: 
+    """
+    Scores overview: 
+    * Consistency Score: 
+        Computes how consistent the moves are, indicating how good the model is at describing 
+        and targeting at the correct icon that it agreed to move with the other player.
+
+        It is computed episode-wise, and at GameMaster level (because both players contribute to it.)
+
+        Example: 
+            player 1: move A (1)
+            player 2: move A (2)
+            player 1: move B (3) 
+            player 2: move B (4)  
+        From (1) to (2) and from (3) to (4), the players are moving consistently. 
+        They only shifted the focused object from (2) to (3). 
+
+        Conversely, when the moving sequence is like
+            player 1: move A
+            player 2: move C
+            player 1: move B
+            player 2: move A
+        Then between any two consecutive moves, they are always shifting the focus.
+        Consistency Score = 1 - (shifts - min_shifts) / (max_shifts - min_shifts)
+
+    * Coverage Score: 
+        Complements Consistency Score 
+        (eg. an episode can have Consistency Score 1 because the players didn't move all the icons)
+        Coverage Score = percentage_of_icons_player1_moved * percentage_of_icons_player2_moved
+
+    * Distance Score: 
+        Measures how close the end pair-wise distance sum is, 
+        compared to the expected distance sum when the icons are randomly placed. 
+        Distance Score = max(0, 1 - distance_sum / expected_distance_sum_when_randomly_placed)
+        When distance_sum > expected_distance_sum_when_randomly_placed, 
+        the model performed worse than random, we give it 0.
+
+    * Penalty Score: 
+
+    Special rules: (idea, not necessarily valid)
+    * Apart from `Distance Score`, we try not to give 0 for any other scores. 
+        This is because the final Bench Score is a product of all scores, 
+        the only case that is absolutely bad is when the distance sum at the end is bigger than randomly scatter objects, 
+        in other cases we give the model a very small score. 
+    """
+    def __init__(self, gm, player_1, player_2): 
+        # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
+        self.moves = []
+
+        self.gm = gm
+        self.player_1 = player_1
+        self.player_2 = player_2
+        self.score_func_registry = {
+            DISTANCE_SCORE: lambda: self.compute_distance_score()[DISTANCE_SCORE],
+            CONSISTENCY_SCORE: self.compute_consistency_score,
+            COVERAGE_SCORE: self.compute_coverage_score,
+            PENALTY_SCORE: self.compute_penalty_score
+        }
+
+        self.aux_func_registry = {
+            INITIAL_DISTANCE: lambda : self.gm.initial_distance,
+            TOTAL_DISTANCE: lambda: self.compute_distance_score()[TOTAL_DISTANCE],
+            EXPECTED_DISTANCE_SCORE: lambda: self.compute_distance_score()[EXPECTED_DISTANCE_SCORE],
+            DISTANCE_REDUCTION_SCORE: lambda: self.compute_distance_score()[DISTANCE_REDUCTION_SCORE],
+            PENALTIES: lambda: self.gm.penalties, 
+            OBJECT_COUNT: lambda: len(self.player_1.grid.objects), 
+            ROUNDS: lambda: self.gm.current_round
+        }
+
+    def add_move(self, move_info): 
+        """
+        move_info: a tuple: (player, obj_id )
+        """
+        self.moves.append(move_info)
+
+    def compute_consistency_score(self): 
+        max_shifts = self.gm.max_rounds * 2
+        min_shifts = len(self.player_1.grid.objects) - 1
+
+        shifts = 0
+        for i in range(1, len(self.moves)): 
+            _, prev_obj = self.moves[i-1]
+            _, curr_obj = self.moves[i]
+
+            if curr_obj != prev_obj: 
+                shifts += 1
+
+        # when the players don't cover all the icons, return the best score 1
+        # we will capture this error with Coverage Score
+        if shifts < min_shifts: 
+            return 1
+
+        # when shifts == max_shifts, return a very small score, rather than return 0
+        # try to avoid return 0 
+        normalized = (shifts - min_shifts) / (max_shifts + 1 - min_shifts)
+        return 1 - normalized # we can use different function at this step
+
+    def compute_coverage_score(self): 
+        id_set = self.player_1.grid.objects.keys()
+
+        moved_set1 = set()
+        moved_set2 = set()
+        for move in self.moves: 
+            if move[0] is self.player_1: 
+                moved_set1.add(move[1])
+            else: 
+                moved_set2.add(move[1])
+
+        # return (% of icons moved by player1) * (% of icons moved by player2) 
+        # add-one smoothing to avoid return score 0
+        coverage1 = (len(moved_set1) + 1) / (len(id_set) + 1)
+        coverage2 = (len(moved_set2) + 1) / (len(id_set) + 1)
+        return coverage1 * coverage2
+    
+    def compute_distance_score(self):
+        return self.player_1.grid.get_scores(self.player_2.grid, self.gm.initial_distance)
+
+    def compute_penalty_score(self): 
+        normalized = self.gm.penalties / (self.gm.max_penalties + 1)
+        return 1 - normalized # we can use different function at this step        
+
+    def compute_scores(self): 
+        scores = {score_name: score_func() for score_name, score_func in self.score_func_registry.items()}
+
+        auxiliaries = {score_name: aux_func() for score_name, aux_func in self.aux_func_registry.items()}
+        
+        if auxiliaries[EXPECTED_DISTANCE_SCORE] == 0: 
+            # worse than random, game lost, bench_score is 0
+            bench_score = 0
+        else: 
+            # The final score is a harmonic mean of all the scores we calculated
+            # one small score can significantly make the final score lower            
+            bench_score = harmonic_mean(scores.values())
+        
+        return scores, bench_score, auxiliaries
+    
 class CleanUpMaster(DialogueGameMaster):
     """
     Template class for game master.
@@ -85,7 +237,7 @@ class CleanUpMaster(DialogueGameMaster):
 
         self.initial_distance = self.player_1.grid.distance_sum(self.player_2.grid)
 
-        self.add_player(self.player_1, initial_context=self.game_instance['p1_initial_prompt'])
+        self.add_player(self.player_1)
         self.add_player(self.player_2)
 
         self.finished = False   # This is for negotiating the end of the game using `terminate_question` and `terminate_answer`
@@ -96,6 +248,14 @@ class CleanUpMaster(DialogueGameMaster):
         self.max_penalties = self.game_instance['max_penalties']    # For strict mode, max_penalties is 0
         self.pass_turn = True
         self.max_rounds = self.game_instance['max_rounds']
+
+        self.metrics_holder = MetricsHolder(self, self.player_1, self.player_2)
+
+    def _on_before_game(self):
+        """
+        Set the initial context for the first player.
+        """
+        self.set_context_for(self.player_1, self.game_instance['p1_initial_prompt'])
 
     def _other_player(self) -> Player:
         """
@@ -196,19 +356,18 @@ class CleanUpMaster(DialogueGameMaster):
     def _advance_game(self, player: Player, parsed_response: str):
         if not parsed_response:
             raise RuleViolationError
-        match = re.compile(self.game_instance['move_pattern']).match(parsed_response)
+        match = self.move_pattern.match(parsed_response)
         if match:
             obj = match.group('obj')
             x = int(match.group('x'))
             y = int(match.group('y'))
             success, message = player.grid.move_abs(obj, x, y, check_empty=True)
             self.pass_turn = success
-            self.set_context_for(player, message)
             if success:
+                self.metrics_holder.add_move((player, obj))
                 # log the move message to the player and add it to the message history (without response)
                 self.log_to_self('valid move', message)
-                self.log_event(from_="GM", to=player.name, action={'type': "send message", 'content': message })
-                player._messages.append(dict(role='user', content=message))
+                player.store_relay_message(message)
                 # turn is passed to the other player
                 next_player_prompt = self._penalty_counter_message()
                 next_player_prompt += self.game_instance["new_turn_move"]
@@ -221,16 +380,16 @@ class CleanUpMaster(DialogueGameMaster):
                 self.set_context_for(player, message)
                 # raise RuleViolationError(f"Invalid move: {message}")
         else:
-            match = re.compile(self.game_instance['message_pattern']).match(parsed_response)
+            match = self.message_pattern.match(parsed_response)
             if match:
                 message = match.group('message')
                 self.pass_turn = True
                 player.store_relay_message(Template(self.game_instance['message_relay']).substitute(message=message))
                 if player == self.player_1 and self.player_2._is_initial_call:
-                    initial_prompt_p2 = Template(self.game_instance['p2_initial_prompt']).substitute(
+                    p2_initial_prompt = Template(self.game_instance['p2_initial_prompt']).substitute(
                         start_message=message
                     )
-                    self.set_context_for(self.player_2, initial_prompt_p2)
+                    self.set_context_for(self.player_2, p2_initial_prompt)
                 else:
                     next_player_prompt = self._penalty_counter_message()
                     next_player_prompt += Template(self.game_instance['new_turn']).substitute(turn_message=message)
@@ -251,7 +410,7 @@ class CleanUpMaster(DialogueGameMaster):
         """
         Check if the game should continue.
         """
-        if self.penalties > self.max_penalties:
+        if self.penalties >= self.max_penalties:
             self.log_to_self('end', 'Maximum number of penalties exceeded')
             self.aborted = True
             return False
@@ -274,28 +433,51 @@ class CleanUpMaster(DialogueGameMaster):
         return 0
 
     def _on_after_game(self):
-        grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
-        self.log_key(INITIAL_DISTANCE, self.initial_distance)
-        score_string = ""
-        for key, value in grid_scores.items():
+        scores, bench_score, auxiliaries = self.metrics_holder.compute_scores()
+        scores_string = ""
+        for key, value in scores.items():
             self.log_key(key, value)
-            score_string += f"* {key}: {float(value):.2f}\n"
+            scores_string += f"* {key}: {float(value):.2f}\n"
 
-        self.log_key('Penalties', self.penalties)
-        self.log_key('Object Count', len(self.player_1.grid.objects))
+        self.log_key(BENCH_SCORE, bench_score)
+        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score):.2f}\n"
+
+        aux_string = ""
+        for key, val in auxiliaries.items(): 
+            self.log_key(key, val)
+            aux_string += f"* {key}: {float(val):.2f}\n"
+
+        # old lose condition: the sum of end distance is bigger than sum of init distance 
+        # lose = auxiliaries[TOTAL_DISTANCE] > auxiliaries[INITIAL_DISTANCE]
+
+        # lose condition: the sum of end distance is bigger than sum of distance distance of two randomly scattered icon set
+        # making it harder to lose; rather than lose, it might be better to get a small bench_score than 0
+        lose = auxiliaries[EXPECTED_DISTANCE_SCORE] == 0
+
         self.log_key(METRIC_ABORTED, int(self.aborted))
-        self.log_key(METRIC_SUCCESS, int(self.success))
-        if self.initial_distance < grid_scores['Total Distance']:
-            self.log_key(METRIC_LOSE, 1)
-        else:
-            self.log_key(METRIC_LOSE, 0)
+        self.log_key(METRIC_LOSE, int(lose))
+        self.log_key(METRIC_SUCCESS, int(self.success))  
 
-        logger.info(grid_scores)
+
+        logger.info(scores)
+
+        # grid_scores = self.player_1.grid.get_scores(self.player_2.grid, self.initial_distance)
+        # self.log_key(INITIAL_DISTANCE, self.initial_distance)
+
+        # self.log_key('Penalties', self.penalties)
+        # self.log_key('Object Count', len(self.player_1.grid.objects))
+        # self.log_key(METRIC_ABORTED, int(self.aborted))
+        # self.log_key(METRIC_SUCCESS, int(self.success))
+        # if self.initial_distance < grid_scores['Total Distance']:
+        #     self.log_key(METRIC_LOSE, 1)
+        # else:
+        #     self.log_key(METRIC_LOSE, 0)
+
 
         self.log_to_self('initial grids', f"Initial grids:\n{self.initial_grid_string}")
         # Log the grids to show up in the transcript
         self.log_to_self('grids', f"Player 1 grid:\n```\n{self.player_1.grid.__str__(show_coords=self.game_instance['show_coords'])}\n```\nPlayer 2 grid:\n```\n{self.player_2.grid.__str__(show_coords=self.game_instance['show_coords'])}```")
-        self.log_to_self('game_finished', f"* success: {self.success}\n* penalties: {self.penalties}\n* rounds: {self.current_round}\n* initial distance: {self.initial_distance:.2f}\n{score_string}* object count: {len(self.player_1.grid.objects)}\n* aborted: {self.aborted}\n* lose: {not self.success}")
+        self.log_to_self('game_finished', f"* success: {self.success}\n* aborted: {self.aborted}\n* lose: {lose}\n-------\n{scores_string}\n-------\n{bench_score_string}\n-------\n{aux_string}")                        
 
 class CleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
@@ -310,27 +492,19 @@ class CleanUpScorer(GameScorer):
 
     def compute_episode_scores(self, episode_interactions: Dict) -> float:
         """ Compute the episode score based on the interactions """
-        turn_count = len(episode_interactions['turns'])
-        penalties = episode_interactions['Penalties']
-        # obj_count = episode_interactions['Object Count']
 
-        self.log_episode_score("Penalties", penalties)
-        self.log_episode_score("Turn Count", turn_count)
-
-        for key in [INITIAL_DISTANCE, TOTAL_DISTANCE, EXPECTED_DISTANCE_SCORE, DISTANCE_REDUCTION_SCORE, DISTANCE_SCORE]:
+        for key in metrics_registry + auxiliaries_registry:
             if key in episode_interactions:
                 self.log_episode_score(key, episode_interactions[key])
             else:
                 logger.warning(f"Key {key} not found in episode interactions, skipping logging.")
         
-        penalty_score = 1 - penalties / (self.game_instance['max_penalties'] + 1)
-        self.log_episode_score("Penalty Score", penalty_score)
-        # The final score is a product of the distance score and the penalty score
         if episode_interactions[METRIC_SUCCESS]:
             if episode_interactions[METRIC_LOSE]:
                 self.log_episode_score(BENCH_SCORE, 0)
             else:
-                self.log_episode_score(BENCH_SCORE, episode_interactions[DISTANCE_SCORE] * penalty_score)
+                # the calculation is centralized in MetricsHolder
+                self.log_episode_score(BENCH_SCORE, episode_interactions[BENCH_SCORE])
         else:
             logger.info(f'aborted, logging Main Score as np.nan')
             self.log_episode_score(BENCH_SCORE, np.nan)
