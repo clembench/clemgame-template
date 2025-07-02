@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 # Seed for reproducibility
 random.seed(73128361)
 
-N_INSTANCES = 2
-LANGUAGES = ['en']
+N_INSTANCES = 1
+LANGUAGES = ['en', 'zh-CN'] # maybe adding Traditional Chinese as well? 'zh-TW'
 
 experiments = [
     {
@@ -91,7 +91,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                     game_instance['p2_initial_prompt'] = self.initial_prompt(grid2, language=LANGUAGE, max_penalties=10) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
                     game_instance['new_turn'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn')
                     game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
-                    game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response')
+                    game_instance['invalid_response'] = self.invalid_response(LANGUAGE)
                     game_instance['penalty_message'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_message')
                     game_instance['penalty_counter'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_counter')
                     game_instance['message_relay'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/message_relay')
@@ -113,12 +113,44 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
         :return: The initial prompt string
         """
         initial_prompt = Template(self.load_template(f'resources/initial_prompts/{language}/initial_prompt_dumb'))
+        commands = self.load_json(f'resources/commands.json')[language]
+        restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
         return initial_prompt.substitute(
             grid=str(grid),
             objects=grid.object_string(),
+            say=commands['say'],
+            move=commands['move'],
+            say_example=commands['say_example'],
+            move_example_1=commands['move_example_1'],
+            move_example_2=commands['move_example_2'],
+            move_example_3=commands['move_example_3'],
+            end_1=commands['end_1'],
+            end_2=commands['end_2'],
+            row=restricted_literals['row'],
+            column=restricted_literals['column'],
             empty_symbol=EMPTY_SYMB,
             max_penalties=max_penalties
         )
 
+
+    def invalid_response(self, language: str) -> str:
+        """
+        Returns the invalid response.
+        :param language: language
+        :return: A string of invalid response, it till contains "$reason", 
+                which will be filled in GameMaster. 
+        """
+        invalid_response = Template(self.load_template(f'resources/intermittent_prompts/{language}/invalid_response'))
+        commands = self.load_json(f'resources/commands.json')[language]
+        restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
+        return invalid_response.substitute(
+            reason="$reason",   # ugly, I know 
+            say=commands['say'],
+            move=commands['move'],
+            row=restricted_literals['row'],
+            column=restricted_literals['column'],
+        )        
+
 if __name__ == '__main__':
     CleanUpInstanceGenerator().generate()
+    

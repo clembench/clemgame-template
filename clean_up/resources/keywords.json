@@ -1,8 +1,14 @@
 {
-    "en": {
-        "move_command": "move",
-        "message_command": "say",
-        "terminate_question": "finished?",
-        "terminate_answer": "finished!"
-    }
+  "en": {
+    "move_command": "move",
+    "message_command": "say",
+    "terminate_question": "finished?",
+    "terminate_answer": "finished!"
+  },
+  "zh-CN": {
+    "move_command": "移动",
+    "message_command": "发送",
+    "terminate_question": "结束了?",
+    "terminate_answer": "结束了!"
+  }
 }
