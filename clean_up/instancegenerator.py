@@ -137,7 +137,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
         """
         Returns the invalid response.
         :param language: language
-        :return: A string of invalid response, it till contains "$reason", 
+        :return: A string of invalid response, it still contains "$reason", 
                 which will be filled in GameMaster. 
         """
         invalid_response = Template(self.load_template(f'resources/intermittent_prompts/{language}/invalid_response'))
