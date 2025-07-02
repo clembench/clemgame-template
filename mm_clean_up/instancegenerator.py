@@ -17,7 +17,7 @@ import copy
 
 from string import Template
 from PIL import Image
-from typing import List
+from typing import List, TypedDict, Tuple
 
 from resources.utils.constant import ICON_WIDTH
 from clemcore.clemgame import GameInstanceGenerator
@@ -32,7 +32,7 @@ from clemcore.clemgame import GameInstanceGenerator
 - dimension 2: diff number of icons (N = 5, 9)
 """
 
-LANGUAGES = ['en']
+LANGUAGES = ['en', 'zh-CN']
 # number of instances per experiment
 # N_INSTANCES = 10 
 N_INSTANCES = 1
@@ -67,6 +67,16 @@ ICON_METADATA_PATH = "resources/icons/metadata.json"
 
 random.seed(73128361)  
 
+
+class Icon(TypedDict):
+    name: str
+    url: str
+    freepik_id: int
+
+class PositionedIcon(Icon):
+    id: str
+    coord: Tuple[int] 
+
 class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
     def __init__(self):
@@ -74,20 +84,20 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
     def on_generate(self):
         for LANGUAGE in LANGUAGES:
-            # for each experiment type, 
-                # 1. load background
+        # for each experiment type, 
+            # 1. load background
 
-                # 2. randomly choose N_ICONS categories of icons, 
-                #    and for each category, randomly choose 1 of the icons
+            # 2. randomly choose N_ICONS categories of icons, 
+            #    and for each category, randomly choose 1 of the icons
 
-                # 3. shuffle the selected icons, 
-                #    assemble two state per instance: [ { id, path, coord }, .. ]
+            # 3. shuffle the selected icons twice,
+            #    assemble two state per instance: [ { id, path, coord }, .. ]
 
             for icon_type, icon_type_config in ICON_TYPE_CONFIGS.items():
                 for icon_num in ICON_NUM_OPTIONS:
                     config = copy.deepcopy(icon_type_config)
                     config = {key: icon_num if val == "$$ICON_NUM$$" else val for key, val in config.items() }
-                    e = f"{icon_type}_{icon_num}"
+                    e = f"{icon_type}_{icon_num}_{LANGUAGE}"
                     
                     print(f"===== Adding experiment of type {e} =====")
                     print(config)
@@ -97,36 +107,19 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                     for instance_id in range(N_INSTANCES):
                         game_instance = self.add_game_instance(experiment, instance_id)
 
-                        game_instance['max_rounds'] = icon_num * 4
-                        game_instance['max_penalties'] = icon_num * 2
+                        max_rounds = icon_num * 4      # arbitrary calculation, might change
+                        max_penalties = icon_num * 2   # arbitrary calculation, might change
+                        game_instance['max_rounds'] = max_rounds
+                        game_instance['max_penalties'] = max_penalties
                         game_instance['lenient'] = True
-                        game_instance["p1_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
-                        game_instance["p2_initial_prompt"] = Template(self.load_template(f"resources/initial_prompts/{LANGUAGE}/initial_prompt")).substitute(max_rounds=str(game_instance['max_rounds'])) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
+                        game_instance["p1_initial_prompt"] = self.initial_prompt(language=LANGUAGE, max_rounds=max_rounds, max_penalties=max_penalties) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
+                        game_instance["p2_initial_prompt"] = self.initial_prompt(language=LANGUAGE, max_rounds=max_rounds, max_penalties=max_penalties) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
                         game_instance['new_turn'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/new_turn")
                         game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
                         game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response')
                         game_instance['penalty_message'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_message')
                         game_instance['penalty_counter'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_counter')
                         game_instance['message_relay'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/message_relay')
-
-                        keywords = self.load_json('resources/keywords.json')[LANGUAGE]
-                        game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"
-                        game_instance['message_pattern'] = f"(?P<head>.*){keywords['message_command']}\((?P<message>[^)]+)\)(?P<tail>.*)"
-                        game_instance['terminate_question'] = keywords['terminate_question']    # 'finished?'
-                        game_instance['terminate_answer'] = keywords['terminate_answer']        # 'finished!'
-                        game_instance['restricted'] = self.load_json('resources/restricted_patterns.json')[LANGUAGE]
-                        game_instance['parse_errors'] = self.load_json('resources/parse_errors.json')[LANGUAGE]
-
-                        # This is message_relay
-                        # game_instance['feedback_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_say")
-                        # "The state of your picture is updated and attached."
-                        # game_instance['feedback_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_move")
-                        # new_turn
-                        # game_instance['feedback_other_say'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_say")
-                        # new_turn_move
-                        # game_instance['feedback_other_move'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_other_move")
-                        # "Now, please give your command."
-                        # game_instance['feedback_ending'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/feedback_ending")
 
                         keywords = self.load_json('resources/keywords.json')[LANGUAGE]
                         game_instance['move_pattern'] = f"(?P<head>.*){keywords['move_command']}\((?P<obj>[A-Z]), *(?P<x>\d+), *(?P<y>\d+)\)(?P<tail>.*)"
@@ -157,8 +150,7 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
                         subcategories = random.sample(list(metadata[category].keys()), n_subcategories)
 
-                        # [ {id, name, url}, ... ]
-                        chosen_icons = []
+                        chosen_icons: List[Icon] = []
                         for sub in subcategories:
                             assert n_icons_per_subcategory <= len(metadata[category][sub]), \
                                 f"n_icons_per_subcategory ({n_icons_per_subcategory}) must be less than or equal to the number of icons in subcategory {sub} ({len(metadata[category][sub])})"
@@ -166,24 +158,58 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                             for icon in random.sample(metadata[category][sub], n_icons_per_subcategory):
                                 chosen_icons.append(icon)
                     
-                        # chosen_icons = [icon
-                        #                 for sub in subcategories 
-                        #                     for icon in random.sample(metadata[category][sub], n_icons_per_subcategory) 
-                        # ]
-
-                        # icon_sub_dirs = self._get_random_subdir(os.path.join("resources", "icons", category), 
-                        #                                         n_subcategories)
-                        
-                        # icon_paths = [f for d in icon_sub_dirs for f in self._get_random_file(d)]
-
-                        # [ {id, coord, name, url, freepik_id} ]
-                        state1 = self._get_random_icon_state(chosen_icons, bg_size)
-                        state2 = self._get_random_icon_state(chosen_icons, bg_size)
+                        state1: List[PositionedIcon] = self._get_random_icon_state(chosen_icons, bg_size)
+                        state2: List[PositionedIcon] = self._get_random_icon_state(chosen_icons, bg_size)
 
                         game_instance["state1"] = state1
                         game_instance["state2"] = state2
 
+
+    def initial_prompt(self, language: str, max_rounds: int, max_penalties: int = 10) -> str:
+        """
+        Returns the initial prompt for the game.
+        :param grid: The game grid
+        :return: The initial prompt string
+        """
+        initial_prompt = Template(self.load_template(f'resources/initial_prompts/{language}/initial_prompt'))
+        commands = self.load_json(f'resources/commands.json')[language]
+        # restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
+        return initial_prompt.substitute(
+            max_rounds=max_rounds,
+            say=commands['say'],
+            move=commands['move'],
+            icon_description=commands['icon_description'],
+            target_location_description=commands['target_location_description'],
+            say_describe_icon_wrong=commands['say_describe_icon_wrong'],
+            say_describe_icon_right=commands['say_describe_icon_right'],
+            say_describe_location_wrong=commands['say_describe_location_wrong'],
+            say_describe_location_right=commands['say_describe_location_right'],
+            end_1=commands['end_1'],
+            end_2=commands['end_2']
+        )
+
+    def invalid_response(self, language: str) -> str:
+        """
+        Returns the invalid response.
+        :param language: language
+        :return: A string of invalid response, it still contains "$reason", 
+                which will be filled in GameMaster. 
+        """
+        invalid_response = Template(self.load_template(f'resources/intermittent_prompts/{language}/invalid_response'))
+        commands = self.load_json(f'resources/commands.json')[language]
+        restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
+        return invalid_response.substitute(
+            reason="$reason",   # ugly, I know 
+            say=commands['say'],
+            move=commands['move'],
+            row=restricted_literals['row'],
+            column=restricted_literals['column'],
+        )     
+
     def _get_random_file(self, directory, n=1, file_extension='png') -> List[str]: 
+        """
+        Get the path of a random file in a given directory.
+        """
         files = [f for f in os.listdir(directory) if f.lower().endswith(file_extension)]
         
         if not files:
@@ -195,22 +221,15 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
         
         return [os.path.join(directory, p) for p in chosen_files]
 
-    def _get_random_subdir(self, directory, k=1) -> List[str]:
-        subdirs = [os.path.join(directory, d) 
-                    for d in os.listdir(directory)
-                        if os.path.isdir(os.path.join(directory, d))]
-        if not subdirs:
-            raise FileNotFoundError("No subdirectories found.")
-        
-        assert k < len(subdirs), "k must be less than the number of subdirectories"
-        
-        return random.sample(subdirs, k=k) if k > 1 else [random.choice(subdirs)]
 
-    def _get_random_icon_state(self, chosen_icons, bg_size): 
+    def _get_random_icon_state(self, chosen_icons: List[Icon], bg_size) -> List[PositionedIcon]: 
+        """
+        For each icon, additionally give them coord and an ID (for display to the players).
+        """
         random.shuffle(chosen_icons)
         bg_width, bg_height = bg_size
 
-        rand_coords = self._get_random_nonoverlapping_coords(ICON_WIDTH, 
+        rand_coords: List[Tuple] = self._get_random_nonoverlapping_coords(ICON_WIDTH, 
                                                         bg_width, 
                                                         bg_height, 
                                                         len(chosen_icons))
@@ -223,12 +242,11 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
             assert re.search(pattern, icon['url']) is not None
 
             id = chr(ord('A') + idx) # use A,B,C,D.. as ID
-            
             state.append({"id": id, "coord": rand_coords[idx], **icon})
 
         return state
 
-    def _get_random_nonoverlapping_coords(self, icon_width, bg_width, bg_height, n):
+    def _get_random_nonoverlapping_coords(self, icon_width, bg_width, bg_height, n) -> List[Tuple]:
         w, h = icon_width, icon_width # icons are square
         step = (w // 50) * 50 # the largest multiple of 50 that is less than or equal to w
 
