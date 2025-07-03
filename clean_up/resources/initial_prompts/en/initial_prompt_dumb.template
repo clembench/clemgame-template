@@ -59,6 +59,8 @@ Remember that you can only see your own grid! You have to communicate with the o
 **End of Game:**
 If you think you reached the goal, you can ask the other player to finish the game by sending `$end_1`. If the other player asks you to finish the game, and you reply `$end_2`, the game will end.
 
+Both players win if the game ends within $max_rounds rounds, where one round is defined as two players each sending a valid command.
+
 **Scoring:**
 The closer the identical objects are in both grids, the more points you get. Penalties reduce your points. Can you beat the record?
                            

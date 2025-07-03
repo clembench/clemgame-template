@@ -107,6 +107,8 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                     for instance_id in range(N_INSTANCES):
                         game_instance = self.add_game_instance(experiment, instance_id)
 
+                        self.commands = self.load_json(f'resources/commands.json')[LANGUAGE]
+
                         max_rounds = icon_num * 4      # arbitrary calculation, might change
                         max_penalties = icon_num * 2   # arbitrary calculation, might change
                         game_instance['max_rounds'] = max_rounds
@@ -116,7 +118,7 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                         game_instance["p2_initial_prompt"] = self.initial_prompt(language=LANGUAGE, max_rounds=max_rounds, max_penalties=max_penalties) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
                         game_instance['new_turn'] = self.load_template(f"resources/intermittent_prompts/{LANGUAGE}/new_turn")
                         game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
-                        game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response')
+                        game_instance['invalid_response'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/invalid_response').replace('$say', self.commands['say']).replace('$move', self.commands['move'])
                         game_instance['penalty_message'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_message')
                         game_instance['penalty_counter'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/penalty_counter')
                         game_instance['message_relay'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/message_relay')
@@ -163,6 +165,12 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
                         game_instance["state1"] = state1
                         game_instance["state2"] = state2
+            # self.store_file(
+            #     self.instances,
+            #     file_name=f"instances_{LANGUAGE}.json",
+            #     sub_dir="in"
+            # )
+            # self.instances = dict(experiments=list())  # reset for next language
 
 
     def initial_prompt(self, language: str, max_rounds: int, max_penalties: int = 10) -> str:
@@ -172,20 +180,19 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
         :return: The initial prompt string
         """
         initial_prompt = Template(self.load_template(f'resources/initial_prompts/{language}/initial_prompt'))
-        commands = self.load_json(f'resources/commands.json')[language]
         # restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
         return initial_prompt.substitute(
             max_rounds=max_rounds,
-            say=commands['say'],
-            move=commands['move'],
-            icon_description=commands['icon_description'],
-            target_location_description=commands['target_location_description'],
-            say_describe_icon_wrong=commands['say_describe_icon_wrong'],
-            say_describe_icon_right=commands['say_describe_icon_right'],
-            say_describe_location_wrong=commands['say_describe_location_wrong'],
-            say_describe_location_right=commands['say_describe_location_right'],
-            end_1=commands['end_1'],
-            end_2=commands['end_2']
+            say=self.commands['say'],
+            move=self.commands['move'],
+            icon_description=self.commands['icon_description'],
+            target_location_description=self.commands['target_location_description'],
+            say_describe_icon_wrong=self.commands['say_describe_icon_wrong'],
+            say_describe_icon_right=self.commands['say_describe_icon_right'],
+            say_describe_location_wrong=self.commands['say_describe_location_wrong'],
+            say_describe_location_right=self.commands['say_describe_location_right'],
+            end_1=self.commands['end_1'],
+            end_2=self.commands['end_2']
         )
 
     def invalid_response(self, language: str) -> str:

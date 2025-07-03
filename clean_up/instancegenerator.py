@@ -87,8 +87,8 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
                     game_instance['state2'] = grid2.object_list()
                     grid1.show_coords = show_coords
                     grid2.show_coords = show_coords
-                    game_instance['p1_initial_prompt'] = self.initial_prompt(grid1, language=LANGUAGE, max_penalties=10) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
-                    game_instance['p2_initial_prompt'] = self.initial_prompt(grid2, language=LANGUAGE, max_penalties=10) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
+                    game_instance['p1_initial_prompt'] = self.initial_prompt(grid1, language=LANGUAGE, max_penalties=max_penalties, max_rounds=max_rounds) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p1_start')
+                    game_instance['p2_initial_prompt'] = self.initial_prompt(grid2, language=LANGUAGE, max_penalties=max_penalties, max_rounds=max_rounds) + self.load_template(f'resources/initial_prompts/{LANGUAGE}/p2_start')
                     game_instance['new_turn'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn')
                     game_instance['new_turn_move'] = self.load_template(f'resources/intermittent_prompts/{LANGUAGE}/new_turn_move')
                     game_instance['invalid_response'] = self.invalid_response(LANGUAGE)
@@ -106,7 +106,7 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
 
                     game_instance['move_messages'] = self.load_json('resources/move_messages.json')[LANGUAGE]
 
-    def initial_prompt(self, grid: GameGrid, language: str, max_penalties: int = 10) -> str:
+    def initial_prompt(self, grid: GameGrid, language: str, max_penalties: int = 10, max_rounds: int = 20) -> str:
         """
         Returns the initial prompt for the game.
         :param grid: The game grid
@@ -129,7 +129,8 @@ class CleanUpInstanceGenerator(GameInstanceGenerator):
             row=restricted_literals['row'],
             column=restricted_literals['column'],
             empty_symbol=EMPTY_SYMB,
-            max_penalties=max_penalties
+            max_penalties=max_penalties,
+            max_rounds=max_rounds
         )
 
 
