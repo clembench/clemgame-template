@@ -130,9 +130,9 @@ class MetricsHolder:
 
     Special rules: (idea, not necessarily valid)
     * Apart from `Distance Score`, we try not to give 0 for any other scores. 
-        This is because the final Bench Score is a product of all scores, 
+        This is because the final Bench Score is a harmonic mean of all scores, 
         the only case that is absolutely bad is when the distance sum at the end is bigger than randomly scatter objects, 
-        in other cases we give the model a very small score. 
+        in this case we mark it as lose (in _after_game), and give it 0 as the bench_score.
     """
     def __init__(self, gm, player_1, player_2): 
         # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
