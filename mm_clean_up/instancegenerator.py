@@ -15,12 +15,13 @@ import random
 import math
 import copy
 
-from string import Template
 from PIL import Image
-from typing import List, TypedDict, Tuple
+from typing import List, Tuple
+from string import Template
+from clemcore.clemgame import GameInstanceGenerator
 
 from resources.utils.constant import ICON_WIDTH
-from clemcore.clemgame import GameInstanceGenerator
+from resources.utils.types import Icon, PositionedIcon
 
 
 """
@@ -32,50 +33,51 @@ from clemcore.clemgame import GameInstanceGenerator
 - dimension 2: diff number of icons (N = 5, 9)
 """
 
-LANGUAGES = ['en', 'zh-CN']
-# number of instances per experiment
-# N_INSTANCES = 10 
-N_INSTANCES = 1
-# number of icons per instance; 2 is only for dev purpose
-ICON_NUM_OPTIONS = [2]
+# LANGUAGES = ['zh-CN', 'en']
+# N_INSTANCES = 3  # number of instances per experiment
 # ICON_NUM_OPTIONS = [5, 9]
-# configurations for each icon type
+
+# # configurations for each icon type
+# ICON_TYPE_CONFIGS = {
+#             "normal": {
+#                 "category": "normal", 
+#                 "n_subcategories": "$$ICON_NUM$$",
+#                 "n_icons_per_subcategory": 1,
+#             }, 
+#             "similar": { 
+#                 "category": "normal", 
+#                 "n_subcategories": 1,
+#                 "n_icons_per_subcategory": "$$ICON_NUM$$",
+#             }, 
+#             "abstract": {
+#                 "category": "abstract",
+#                 "n_subcategories": 1,
+#                 "n_icons_per_subcategory": "$$ICON_NUM$$",
+#             }   
+#         }
+
+# -------- dev --------
+LANGUAGES = ['zh-CN']
+N_INSTANCES = 1
+ICON_NUM_OPTIONS = [2]
 ICON_TYPE_CONFIGS = {
-            "normal": {
-                "category": "normal", 
-                "n_subcategories": "$$ICON_NUM$$",
-                "n_icons_per_subcategory": 1,
-            }, 
-            "similar": {  # maybe change to "normal_similar"
-                "category": "normal", 
-                "n_subcategories": 1,
-                "n_icons_per_subcategory": "$$ICON_NUM$$",
-            }, 
-            # across different sub-categories of abstract, 
-            # it's easy to distinguish the icons, 
-            # so we only need to select one sub-category,
-            "abstract": {  # maybe change to "abstract_similar"
+            "abstract": {
                 "category": "abstract",
                 "n_subcategories": 1,
                 "n_icons_per_subcategory": "$$ICON_NUM$$",
             }   
         }
+# ---------------------
+
 
 ICON_METADATA_PATH = "resources/icons/metadata.json"
 
 # logger = logging.getLogger(__name__)
+num_instance = len(ICON_TYPE_CONFIGS) * len(ICON_NUM_OPTIONS) * N_INSTANCES * len(LANGUAGES) 
+print(f"will generate in total {num_instance} instances")
 
 random.seed(73128361)  
 
-
-class Icon(TypedDict):
-    name: str
-    url: str
-    freepik_id: int
-
-class PositionedIcon(Icon):
-    id: str
-    coord: Tuple[int] 
 
 class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
 
@@ -108,9 +110,8 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                         game_instance = self.add_game_instance(experiment, instance_id)
 
                         self.commands = self.load_json(f'resources/commands.json')[LANGUAGE]
-
-                        max_rounds = icon_num * 4      # arbitrary calculation, might change
-                        max_penalties = icon_num * 2   # arbitrary calculation, might change
+                        max_rounds = icon_num * 5      # arbitrary calculation, might change
+                        max_penalties = icon_num * 3   # arbitrary calculation, might change
                         game_instance['max_rounds'] = max_rounds
                         game_instance['max_penalties'] = max_penalties
                         game_instance['lenient'] = True
@@ -142,8 +143,6 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
                         category = config["category"]
                         n_subcategories = config["n_subcategories"]
                         n_icons_per_subcategory = config["n_icons_per_subcategory"]
-
-                        print(f"Category: {category}, n_subcategories: {n_subcategories}, n_icons_per_subcategory: {n_icons_per_subcategory}")
 
                         metadata = self.load_json(ICON_METADATA_PATH)
 
@@ -180,7 +179,6 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
         :return: The initial prompt string
         """
         initial_prompt = Template(self.load_template(f'resources/initial_prompts/{language}/initial_prompt'))
-        # restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
         return initial_prompt.substitute(
             max_rounds=max_rounds,
             say=self.commands['say'],
@@ -204,13 +202,10 @@ class CleanUpMultiModalInstanceGenerator(GameInstanceGenerator):
         """
         invalid_response = Template(self.load_template(f'resources/intermittent_prompts/{language}/invalid_response'))
         commands = self.load_json(f'resources/commands.json')[language]
-        restricted_literals = self.load_json(f'resources/restricted_literals.json')[language]
         return invalid_response.substitute(
             reason="$reason",   # ugly, I know 
             say=commands['say'],
             move=commands['move'],
-            row=restricted_literals['row'],
-            column=restricted_literals['column'],
         )     
 
     def _get_random_file(self, directory, n=1, file_extension='png') -> List[str]: 

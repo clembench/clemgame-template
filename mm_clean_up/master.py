@@ -1,19 +1,21 @@
 import re
-import os.path
 import time
 import random
 import logging
 import shutil
+import os.path
 import numpy as np
-from statistics import harmonic_mean
-from typing import Dict, Tuple, List, Union
+from typing import Dict, List
 from string import Template
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer, ParseError, GameError, RuleViolationError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 # from clemcore.utils import file_utils, string_utils
+
 from resources.utils.PicState import PicState, png_to_base64
+from resources.utils.metrics import MetricPreparer, MetricCalculator, END_DISTANCE_SUM, EXPECTED_DISTANCE_SUM, MOVES, INIT_STATES, END_STATES, ingredients_registry, sub_metrics_registry
+from resources.utils.types import FullPositionedIcon
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +50,12 @@ class Cleaner(Player):
         """
         if self._relay_message:
             context['content'] = self._relay_message + context['content']
-        # NOT sending feedback relay image to accommodate to the widest selection of models
-        # (one image is 3k+ tokens; in experiments with 9 icons, at least 27k tokens will be used to send images)
-        # if self._relay_image:
-        #     context['image'] = self._relay_image
+        # `image` in context is set by init message
         if 'image' in context:
-            # If the context contains an image, we log it
             self.log_image(context['image'])
+        # `image` in self._relay_image only log, don't send 
+        if self._relay_image:
+            self.log_image(self._relay_image)
         response = super().__call__(context, memorize=memorize)
         self._relay_message = ""
         self._relay_image = None
@@ -72,159 +73,6 @@ class Cleaner(Player):
         self._game_recorder.log_event(from_='GM', to=self.name, action=action)
 
 
-# metrics
-DISTANCE_SCORE = "Distance Score"
-CONSISTENCY_SCORE = "Consistency Score"
-COVERAGE_SCORE = "Coverage Score"
-PENALTY_SCORE = "Penalty Score"
-metrics_registry = [DISTANCE_SCORE, CONSISTENCY_SCORE, COVERAGE_SCORE, PENALTY_SCORE]
-
-# auxiliary metrics
-INITIAL_DISTANCE = "Initial Distance"
-TOTAL_DISTANCE = "Total Distance"
-DISTANCE_REDUCTION_SCORE = "Distance Reduction Score"
-EXPECTED_DISTANCE_SCORE = "Expected Distance Score"
-PENALTIES = "Penalties"
-OBJECT_COUNT = "Object Count"
-ROUNDS = "Rounds"
-auxiliaries_registry = [INITIAL_DISTANCE, TOTAL_DISTANCE, DISTANCE_REDUCTION_SCORE, EXPECTED_DISTANCE_SCORE, PENALTIES, OBJECT_COUNT, ROUNDS]
-
-class MetricsHolder: 
-    """
-    Scores overview: 
-    * Consistency Score: 
-        Computes how consistent the moves are, indicating how good the model is at describing 
-        and targeting at the correct icon that it agreed to move with the other player.
-
-        It is computed episode-wise, and at GameMaster level (because both players contribute to it.)
-
-        Example: 
-            player 1: move A (1)
-            player 2: move A (2)
-            player 1: move B (3) 
-            player 2: move B (4)  
-        From (1) to (2) and from (3) to (4), the players are moving consistently. 
-        They only shifted the focused object from (2) to (3). 
-
-        Conversely, when the moving sequence is like
-            player 1: move A
-            player 2: move C
-            player 1: move B
-            player 2: move A
-        Then between any two consecutive moves, they are always shifting the focus.
-        Consistency Score = 1 - (shifts - min_shifts) / (max_shifts - min_shifts)
-
-    * Coverage Score: 
-        Complements Consistency Score 
-        (eg. an episode can have Consistency Score 1 because the players didn't move all the icons)
-        Coverage Score = percentage_of_icons_player1_moved * percentage_of_icons_player2_moved
-
-    * Distance Score: 
-        Measures how close the end pair-wise distance sum is, 
-        compared to the expected distance sum when the icons are randomly placed. 
-        Distance Score = max(0, 1 - distance_sum / expected_distance_sum_when_randomly_placed)
-        When distance_sum > expected_distance_sum_when_randomly_placed, 
-        the model performed worse than random, we give it 0.
-
-    * Penalty Score: 
-
-    Special rules: (idea, not necessarily valid)
-    * Apart from `Distance Score`, we try not to give 0 for any other scores. 
-        This is because the final Bench Score is a harmonic mean of all scores, 
-        the only case that is absolutely bad is when the distance sum at the end is bigger than randomly scatter objects, 
-        in this case we mark it as lose (in _after_game), and give it 0 as the bench_score.
-    """
-    def __init__(self, gm, player_1, player_2): 
-        # self.moves: [ (player, { id, coord, name, url, freepik_id, img } ), ... ]
-        self.moves = []
-
-        self.gm = gm
-        self.player_1 = player_1
-        self.player_2 = player_2
-        self.score_func_registry = {
-            DISTANCE_SCORE: lambda: self.compute_distance_score(self.gm.initial_distance),
-            CONSISTENCY_SCORE: self.compute_consistency_score,
-            COVERAGE_SCORE: self.compute_coverage_score,
-            PENALTY_SCORE: self.compute_penalty_score
-        }
-
-        self.aux_func_registry = {
-            INITIAL_DISTANCE: lambda : self.gm.initial_distance,
-            TOTAL_DISTANCE: lambda: self.player_1.pic_state.distance_sum(self.player_2.pic_state), 
-            EXPECTED_DISTANCE_SCORE: lambda: self.player_1.pic_state.expected_distance_score(self.player_2.pic_state),
-            DISTANCE_REDUCTION_SCORE: lambda: self.player_1.pic_state.distance_reduction_score(self.player_2.pic_state, self.gm.initial_distance),
-            PENALTIES: lambda: self.gm.penalties, 
-            OBJECT_COUNT: lambda: len(self.player_1.pic_state.state), 
-            ROUNDS: lambda: self.gm.current_round
-        }
-
-    def add_move(self, move_info): 
-        """
-        move_info: a tuple: (player, { id, coord, name, url, freepik_id, img } )
-        """
-        self.moves.append(move_info)
-
-    def compute_consistency_score(self): 
-        max_shifts = self.gm.max_rounds * 2
-        min_shifts = len(self.player_1.pic_state.state) - 1
-
-        shifts = 0
-        for i in range(1, len(self.moves)): 
-            _, prev_icon = self.moves[i-1]
-            _, curr_icon = self.moves[i]
-
-            if curr_icon['freepik_id'] != prev_icon['freepik_id']: 
-                shifts += 1
-
-        # when the players don't cover all the icons, return the best score 1
-        # we will capture this error with another metric, Coverage Score
-        if shifts < min_shifts: 
-            return 1
-
-        # when shifts == max_shifts, return a very small score, rather than return 0
-        # because the final score is product of all scores, we probably don't want too many 0s across models
-        normalized = (shifts - min_shifts) / (max_shifts + 1 - min_shifts)
-        return 1 - normalized # we can use different function at this step
-
-    def compute_coverage_score(self): 
-        id_set = set([ele['freepik_id'] for ele in self.player_1.pic_state.state])
-
-        moved_set1 = set()
-        moved_set2 = set()
-        for move in self.moves: 
-            if move[0] is self.player_1: 
-                moved_set1.add(move[1]['freepik_id'])
-            else: 
-                moved_set2.add(move[1]['freepik_id'])
-
-        # return (% of icons moved by player1) * (% of icons moved by player2) 
-        # add-one smoothing
-        coverage1 = (len(moved_set1) + 1) / (len(id_set) + 1)
-        coverage2 = (len(moved_set2) + 1) / (len(id_set) + 1)
-        return coverage1 * coverage2
-    
-    def compute_distance_score(self, initial_distance):
-        return self.player_1.pic_state.distance_score(self.player_2.pic_state, initial_distance)
-
-    def compute_penalty_score(self): 
-        normalized = self.gm.penalties / (self.gm.max_penalties + 1)
-        return 1 - normalized # we can use different function at this step        
-
-    def compute_scores(self): 
-        scores = {score_name: score_func() for score_name, score_func in self.score_func_registry.items()}
-
-        auxiliaries = {score_name: aux_func() for score_name, aux_func in self.aux_func_registry.items()}
-        
-        if auxiliaries[EXPECTED_DISTANCE_SCORE] == 0: 
-            # worse than random, game lost, bench_score is 0
-            bench_score = 0
-        else: 
-            # The final score is a harmonic mean of all the scores we calculated
-            # one small score can significantly make the final score lower            
-            bench_score = harmonic_mean(scores.values())
-
-        
-        return scores, bench_score, auxiliaries
 
 class MultimodalCleanUpMaster(DialogueGameMaster):
     """
@@ -264,7 +112,7 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
         self.pass_turn = True
         self.max_rounds = self.game_instance['max_rounds']
 
-        self.metrics_holder = MetricsHolder(self, self.player_1, self.player_2)
+        self.metric_preparer = MetricPreparer(self, self.player_1, self.player_2)
 
     def _on_before_game(self):
         """
@@ -360,7 +208,7 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
         """
         Check if the player should pass their turn.
         """
-        time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(1, 2))
         return self.pass_turn
 
     def _start_next_round(self) -> bool:
@@ -390,8 +238,8 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
             success, message, image = player.pic_state.move_abs(obj, x, y)
             self.pass_turn = success
             if success:
-                icon_element = player.pic_state.get_element_by_id(obj)
-                self.metrics_holder.add_move((player, icon_element))                
+                icon_element: FullPositionedIcon = player.pic_state.get_element_by_id(obj)
+                self.metric_preparer.add_move((player.name, icon_element))                
                 # log the move message to the player and add it to the message history (without response)
                 # self.log_to_self('valid move', message)
                 player.store_relay_message(message, image=image)  
@@ -465,32 +313,36 @@ class MultimodalCleanUpMaster(DialogueGameMaster):
             logger.info("Cleaning up temporary files...")
             shutil.rmtree('tmp')
 
-        scores, bench_score, auxiliaries = self.metrics_holder.compute_scores()
-        scores_string = ""
-        for key, val in scores.items(): 
+        ingredients = self.metric_preparer.compute_ingredients()
+        ingredients_string = ""
+        for key, val in ingredients.items(): 
+            # log all the necessary metrics to `interaction.json`
             self.log_key(key, val)
-            scores_string += f"* {key}: {float(val):.2f}\n"
+            # display some of the ingredients in transcript
+            if key not in [MOVES, INIT_STATES, END_STATES]:
+                ingredients_string += f"* {key}: {float(val):.2f}\n"
 
-        self.log_key(BENCH_SCORE, bench_score)
-        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score):.2f}\n"
-
-        aux_string = ""
-        for key, val in auxiliaries.items(): 
-            self.log_key(key, val)
-            aux_string += f"* {key}: {float(val):.2f}\n"
-
-        # old lose condition: the sum of end distance is bigger than sum of init distance 
-        # lose = auxiliaries[TOTAL_DISTANCE] > auxiliaries[INITIAL_DISTANCE]
-
-        # lose condition: the sum of end distance is bigger than sum of distance distance of two randomly scattered icon set
-        # making it harder to lose; rather than lose, it might be better to get a small bench_score than 0
-        lose = auxiliaries[EXPECTED_DISTANCE_SCORE] == 0
+        lose = ingredients[END_DISTANCE_SUM] > ingredients[EXPECTED_DISTANCE_SUM]
 
         self.log_key(METRIC_ABORTED, int(self.aborted))
         self.log_key(METRIC_LOSE, int(lose))
         self.log_key(METRIC_SUCCESS, int(self.success))  
 
-        self.log_to_self('game_finished', f"* success: {self.success}\n* aborted: {self.aborted}\n* lose: {lose}\n-------\n{scores_string}\n-------\n{bench_score_string}\n-------\n{aux_string}")            
+        self.log_to_self('game_finished', f"* success: {self.success}\n* lose: {lose}\n* aborted: {self.aborted}\n-------\n{ingredients_string}")            
+
+        # ----------------------------------------------------------
+        # # dev: also compute sub-metrics and bench score to show on transcript
+        metrics_calculator = MetricCalculator(ingredients)
+        sub_metrics, bench_score = metrics_calculator.compute_metrics()
+
+        bench_score_string = f"* {BENCH_SCORE}: {float(bench_score):.2f}\n"
+
+        sub_metrics_string = ""
+        for key, val in sub_metrics.items(): 
+            sub_metrics_string += f"* {key}: {float(val):.2f}\n"    
+
+        self.log_to_self('dev:game_finished', f"{bench_score_string}\n-------\n{sub_metrics_string}")
+        # ----------------------------------------------------------
 
 class MultimodalCleanUpScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
@@ -504,20 +356,23 @@ class MultimodalCleanUpScorer(GameScorer):
                     self.log_turn_score(turn_idx, 'response_received', 1)
 
     def compute_episode_scores(self, episode_interactions: Dict) -> float:
-        """ Compute the episode score based on the interactions """
-
-        for key in metrics_registry + auxiliaries_registry:
-            if key in episode_interactions:
-                self.log_episode_score(key, episode_interactions[key])
-            else:
-                logger.warning(f"Key {key} not found in episode interactions, skipping logging.")
+        """ Compute the episode score based on the ingredients logged in interactions """
+        # reconstruct ingredients from episode_interactions
+        ingredients = {}
+        for key in ingredients_registry:
+            assert key in episode_interactions, f"Key {key} must be in episode interactions"
+            ingredients[key] = episode_interactions[key]
         
+        metrics_calculator = MetricCalculator(ingredients)
+        sub_metrics, bench_score = metrics_calculator.compute_metrics()        
+        
+        for key in sub_metrics_registry:
+            self.log_episode_score(key, sub_metrics[key])
+
+        # log the bench score
         if episode_interactions[METRIC_SUCCESS]:
-            if episode_interactions[METRIC_LOSE]:
-                self.log_episode_score(BENCH_SCORE, 0)
-            else:
-                # the calculation is centralized in MetricsHolder
-                self.log_episode_score(BENCH_SCORE, episode_interactions[BENCH_SCORE])
+            # the case when game is LOSE is taken care of by MetricCalculator
+            self.log_episode_score(BENCH_SCORE, bench_score) 
         else:
             logger.info(f'aborted, logging Main Score as np.nan')
             self.log_episode_score(BENCH_SCORE, np.nan)

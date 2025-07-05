@@ -6,6 +6,9 @@ import base64
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from string import Template
+from copy import deepcopy
+from .types import PositionedIcon, FullPositionedIcon
+from typing import Dict, List, Tuple, Union
 
 from io import BytesIO
 from PIL import Image
@@ -20,7 +23,7 @@ def png_to_base64(png_path):
 
 
 class PicState:
-    def __init__(self, background_path, state, img_prefix: str = None, move_messages: dict = None):
+    def __init__(self, background_path, state: List[PositionedIcon], img_prefix: str = None, move_messages: dict = None):
         """
         background_path: Path to the background image.
         state: [ { id, coord, name, url, freepik_id }, ... ]
@@ -29,15 +32,14 @@ class PicState:
         self.img_prefix = img_prefix
         self.image_counter = 0
         self.background_path = background_path
-        self.state = state
-
-        # self.state: [ { id, coord, name, url, freepik_id, img }, ... ]
-        for entry in self.state: 
-            response = requests.get(entry['url'])
+        
+        self.state: List[FullPositionedIcon] = []
+        for entry in state: 
+            entry_copy = deepcopy(entry)
+            response = requests.get(entry_copy['url'])
             response.raise_for_status()
-            # a PIL.Image.Image object
-            # use case: ax.imshow(img)
-            entry['img'] = Image.open(BytesIO(response.content)) 
+            entry_copy['img'] = Image.open(BytesIO(response.content)) 
+            self.state.append(entry_copy)
 
         # Load background image and get dimensions
         # Output the current working directory
@@ -215,27 +217,8 @@ class PicState:
             return 0.0
         return sum(distances.values())
     
-    def distance_score(self, other, initial_distance=None):
-        """
-        Returns a score based on the distance sum compared to the worst case scenario.
-        """
-        if not isinstance(other, PicState):
-            raise ValueError("Comparison is only supported between two PicState instances")
-        
-        self_set = set(ele['freepik_id'] for ele in self.state)
-        other_set = set(ele['freepik_id'] for ele in other.state)
-        if not self_set == other_set:
-            raise ValueError("Grids must have the same objects for comparison")        
-        
-        if not initial_distance:
-            raise ValueError("Initial distance must be provided for score calculation")        
-        
-        expected_distance_score = self.expected_distance_score(other)
-        distance_reduction_score = self.distance_reduction_score(other, initial_distance)
-        distance_score = (expected_distance_score + distance_reduction_score) / 2
-        return distance_score
 
-    def expected_total_distance(self):
+    def expected_distance_sum(self):
         """
         Returns the expected total distance for a given number of objects, 
         when they are randomly scattered on a background picture.
@@ -245,21 +228,3 @@ class PicState:
         avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
         return avg_dist * len(self.state)
     
-    def expected_distance_score(self, other):
-        """
-        Returns the expected distance score based on the distance sum and the expected total distance.
-        """
-        distance_sum = self.distance_sum(other)
-        expected_distance = self.expected_total_distance()
-        if expected_distance <= 0:
-            raise ValueError("Expected distance must be a positive number")
-        return max(0, 1 - (distance_sum / expected_distance))  
-
-    def distance_reduction_score(self, other, initial_distance: float):
-        """
-        Returns the distance reduction score based on the distance sum and the initial distance.
-        """
-        distance_sum = self.distance_sum(other)
-        if initial_distance is None or initial_distance <= 0:
-            raise ValueError("Initial distance must be a positive number")
-        return max(0, 1 - (distance_sum / initial_distance))      

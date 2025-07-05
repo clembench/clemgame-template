@@ -10,7 +10,7 @@ You are playing a collaborative game with another player based on your image. Th
 
 * In each turn, you can send exactly one command. Valid commands are:
     * Send a message to the other player: `$say`
-    * Move an icon with id <ID> to a new position: `$move`, where `X` and `Y` are coordinates as shown in the image. You will **not** receive visual feedback. The other player can't see your move commands.
+    * Move an icon with id <ID> to a new position: `$move`, where `<X>` and `<Y>` are coordinates as shown in the image. You will **not** receive visual feedback. The other player can't see your move commands.
     * You must not use coordinates when communicating with the other player.
 * Strictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.
 
