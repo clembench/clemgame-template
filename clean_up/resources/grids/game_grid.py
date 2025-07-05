@@ -1,6 +1,7 @@
 import random
 import json
 from string import Template
+from typing import Dict, Tuple
 
 EMPTY_SYMB = "◌"
 INITIAL_DISTANCE = "Initial Distance"
@@ -17,7 +18,7 @@ class GameGrid:
         self.grid = self.parse_grid(grid) if grid else []
         self.width = len(self.grid[0]) if self.grid else 0
         self.height = len(self.grid) if self.grid else 0
-        self.objects = {}
+        self.objects: Dict[str, Tuple[int, int]] = {}
         if object_string:
             self.place_objects(list(object_string))
         self.move_messages = move_messages
@@ -224,44 +225,48 @@ class GameGrid:
         avg_dist = (avg_x_dist ** 2 + avg_y_dist ** 2) ** 0.5
         return avg_dist * self.object_set().__len__()
     
-    def expected_distance_score(self, distance_sum: float):
-        """
-        Returns the expected distance score based on the distance sum and the expected total distance.
-        """
-        expected_distance = self.expected_total_distance()
-        if expected_distance <= 0:
-            raise ValueError("Expected distance must be a positive number")
-        return max(0, 1 - (distance_sum / expected_distance))
+    # ----------------------
+    # Note: (sub)metric computations are centralized in the MetricCalculator class.
+    # see `resources/utils/metrics.py`
+    # ----------------------
+    # def expected_distance_score(self, distance_sum: float):
+    #     """
+    #     Returns the expected distance score based on the distance sum and the expected total distance.
+    #     """
+    #     expected_distance = self.expected_total_distance()
+    #     if expected_distance <= 0:
+    #         raise ValueError("Expected distance must be a positive number")
+    #     return max(0, 1 - (distance_sum / expected_distance))
     
-    def distance_reduction_score(self, distance_sum: float, initial_distance: float):
-        """
-        Returns the distance reduction score based on the distance sum and the initial distance.
-        """
-        if initial_distance is None or initial_distance <= 0:
-            raise ValueError("Initial distance must be a positive number")
-        return max(0, 1 - (distance_sum / initial_distance))
+    # def distance_reduction_score(self, distance_sum: float, initial_distance: float):
+    #     """
+    #     Returns the distance reduction score based on the distance sum and the initial distance.
+    #     """
+    #     if initial_distance is None or initial_distance <= 0:
+    #         raise ValueError("Initial distance must be a positive number")
+    #     return max(0, 1 - (distance_sum / initial_distance))
 
-    def get_scores(self, other, initial_distance: float = None):
-        """
-        Returns a dictionary with the distance sum and distance score compared to the worst case scenario.
-        """
-        if not isinstance(other, GameGrid):
-            raise ValueError("Comparison is only supported between two GameGrid instances")
-        if not self.object_set() == other.object_set():
-            raise ValueError("Grids must have the same objects for comparison")
-        if not initial_distance:
-            raise ValueError("Initial distance must be provided for score calculation")
+    # def get_scores(self, other, initial_distance: float = None):
+    #     """
+    #     Returns a dictionary with the distance sum and distance score compared to the worst case scenario.
+    #     """
+    #     if not isinstance(other, GameGrid):
+    #         raise ValueError("Comparison is only supported between two GameGrid instances")
+    #     if not self.object_set() == other.object_set():
+    #         raise ValueError("Grids must have the same objects for comparison")
+    #     if not initial_distance:
+    #         raise ValueError("Initial distance must be provided for score calculation")
         
-        distance_sum = self.distance_sum(other)
+    #     distance_sum = self.distance_sum(other)
 
-        expected_distance_score = self.expected_distance_score(distance_sum)
-        distance_reduction_score = self.distance_reduction_score(distance_sum, initial_distance)
+    #     expected_distance_score = self.expected_distance_score(distance_sum)
+    #     distance_reduction_score = self.distance_reduction_score(distance_sum, initial_distance)
 
-        distance_score = (expected_distance_score + distance_reduction_score) / 2
+    #     distance_score = (expected_distance_score + distance_reduction_score) / 2
         
-        return {
-            TOTAL_DISTANCE: distance_sum,
-            EXPECTED_DISTANCE_SCORE: expected_distance_score,
-            DISTANCE_REDUCTION_SCORE: distance_reduction_score,
-            DISTANCE_SCORE: distance_score
-        }
+    #     return {
+    #         TOTAL_DISTANCE: distance_sum,
+    #         EXPECTED_DISTANCE_SCORE: expected_distance_score,
+    #         DISTANCE_REDUCTION_SCORE: distance_reduction_score,
+    #         DISTANCE_SCORE: distance_score
+    #     }
