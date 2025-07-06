@@ -7,10 +7,10 @@
     "invalid_start": "You must begin the game by sending a message to the other player!"
   },
   "zh-CN": {
-    "head_tail": "你的消息中指令前后不得包含任何其它内容！",
-    "several_commands": "你的消息包含多个指令！",
+    "head_tail": "指令前后不得包含任何其它内容！",
+    "several_commands": "你的消息包含多条指令！",
     "restriction": "你的消息中包含受限内容！",
     "invalid_format": "你的消息格式不符合要求！",
-    "invalid_start": "你必须向其他玩家发送消息才能开始游戏！"
+    "invalid_start": "你必须先向另一位玩家发送一条消息来开始游戏！"
   }
 }
