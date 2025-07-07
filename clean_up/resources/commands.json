@@ -1,7 +1,7 @@
 {
   "en": {
     "say": "say(<MESSAGE>)",
-    "move": "move(<object>,<x>,<y>)",
+    "move": "move(<OBJECT>,<X>,<Y>)",
     "say_example": "say(Let's move 'W' to the lower right corner. Do you agree?)",
     "move_example_1": "move(C,1,1)",
     "move_example_2": "move(C,2,1)",
