@@ -4,6 +4,6 @@
   "main_game": "clean_up",
   "players": "two",
   "image": "none",
-  "languages": ["en"],
+  "languages": ["en", "zh-CN", "de"],
   "benchmark": []
 }

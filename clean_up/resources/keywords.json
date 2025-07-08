@@ -10,5 +10,11 @@
     "message_command": "发送",
     "terminate_question": "结束了？",
     "terminate_answer": "结束了！"
+  },
+  "de": {
+    "move_command": "verschiebe",
+    "message_command": "sprich",
+    "terminate_question": "fertig?",
+    "terminate_answer": "fertig!"
   }
 }

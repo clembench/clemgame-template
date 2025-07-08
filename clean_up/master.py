@@ -52,6 +52,8 @@ class Cleaner(Player):
             context['content'] = self._relay_message + context['content']
             self._relay_message = ""
         return super().__call__(context, memorize=memorize)
+
+
 class CleanUpMaster(DialogueGameMaster):
     """
     Template class for game master.

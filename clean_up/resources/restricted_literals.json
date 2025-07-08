@@ -3,9 +3,12 @@
     "row": "row",
     "column": "column"
   },
-
   "zh-CN": {
     "row": "行",
     "column": "列"
+  },
+  "de": {
+    "row": "Zeile",
+    "column": "Spalte"
   }
 }

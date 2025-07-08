@@ -1,9 +1,8 @@
 {
   "en": [
     "[0-9]+",
-    "\\brows?",
-    "\\bcolumns?",
-    "\\bone\\b",
+    "\\brows?\\b",
+    "\\bcolumns?\\b",
     "\\btwo\\b",
     "\\bthree\\b",
     "\\bfour\\b",
@@ -16,7 +15,6 @@
     "\\beleven\\b",
     "\\btwelve\\b",
     "\\bthirteen\\b",
-    "\\bfirst\\b",
     "\\bsecond\\b",
     "\\bthird\\b",
     "\\bfourth\\b",
@@ -29,6 +27,9 @@
     "\\beleventh\\b",
     "\\btwelfth\\b",
     "\\bthirteenth\\b"
+  ],
+  "en-note": [
+    "'one' and 'first' are not restricted, because it might occur in natural speech, e.g. 'move one object at a time', 'first of all, let's...'"
   ],
   "zh-CN": [
     "[0-9]+",
@@ -44,5 +45,44 @@
     "十一",
     "十二",
     "十三"
+  ],
+  "zh-CN-note": [
+    "'一' isn't restricted, since it commonly occurs in words such as '一起‘"
+  ],
+  "de": [
+    "[0-9]+",
+    "\\bzeilen?\\b",
+    "\\bspalten?\\b",
+    "\\beins\\b",
+    "\\bzwei\\b",
+    "\\bdrei\\b",
+    "\\bvier\\b",
+    "\\bfünf\\b",
+    "\\bfuenf\\b",
+    "\\bsechs\\b",
+    "\\bsieben\\b",
+    "\\bacht\\b",
+    "\\bzehn\\b",
+    "\\belf\\b",
+    "\\bzwölf\\b",
+    "\\bzwoelf\\b",
+    "\\bdreizehn\\b",
+    "\\bzweite",
+    "\\bdritte",
+    "\\bvierte",
+    "\\bfünfte",
+    "\\bfuenfte",
+    "\\bsechste",
+    "\\bsiebte",
+    "\\neunte",
+    "zehnte",
+    "\\belfte",
+    "\\bzwölfte",
+    "\\bzwoelfte"
+  ],
+  "de-note": [
+    "'erste' isn't restricted, since it might occur in phrases such as 'als erstes'",
+    "words with Umlaut should occur twice, once with diaeresis (e.g. 'ä') and once without (e.g. 'ae')",
+    "'zehnte' also covers ordinal numbers from 13 to 19, e.g. 'dreizehnte', 'vierzehnte', etc."
   ]
 }
