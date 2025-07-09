@@ -172,7 +172,7 @@ class MetricCalculator:
     def compute_penalty_score(self):     
         penalties = self.ingredients[PENALTIES]
         max_penalties = self.ingredients[MAX_PENALTIES]
-        normalized = penalties / (max_penalties + 1)
+        normalized = penalties / max_penalties
         return 1 - normalized  # we can use different function at this step
 
     def compute_metrics(self): 
