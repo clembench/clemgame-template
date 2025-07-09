@@ -55,7 +55,7 @@ SEED = 73128361
 # ]
 
 # -------- dev --------
-LANGUAGES = ['de']
+LANGUAGES = ['de', 'zh-CN', 'en']
 N_INSTANCES = 1
 experiments = [
     {

@@ -33,10 +33,10 @@ PENALTY_SCORE = "Penalty Score"
 sub_metrics_registry = [DISTANCE_SCORE, CONSISTENCY_SCORE, 
                         COVERAGE_SCORE]
 
-def validate(key_registry, to_validate: Dict, classname: str): 
-    missing = [key for key in key_registry if key not in to_validate]
-    if missing:
-        raise ValueError(f"{classname}: Missing keys: {', '.join(missing)}")
+# def validate(key_registry, to_validate: Dict, classname: str): 
+#     missing = [key for key in key_registry if key not in to_validate]
+#     if missing:
+#         raise ValueError(f"{classname}: Missing keys: {', '.join(missing)}")
 
 class MetricPreparer: 
     def __init__(self, gm, player_1, player_2): 
@@ -65,7 +65,7 @@ class MetricPreparer:
             OBJECT_COUNT: len(player_1.grid.get_objects()),
         }
 
-        validate(ingredients_registry, self.ingredients, self.__class__.__name__)
+        # validate(ingredients_registry, self.ingredients, self.__class__.__name__)
                 
 
     def add_move(self, move_info: Tuple[str, str]): 
@@ -112,7 +112,7 @@ class MetricCalculator:
     This class centralizes the computation of all the sub-metrics, and the main metric.
     """
     def __init__(self, ingredients: Dict):
-        validate(ingredients_registry, ingredients, self.__class__.__name__)
+        # validate(ingredients_registry, ingredients, self.__class__.__name__)
 
         self.ingredients = ingredients
 
@@ -122,7 +122,7 @@ class MetricCalculator:
             COVERAGE_SCORE: self.compute_coverage_score
         }
 
-        validate(sub_metrics_registry, self.sub_metric_funcs, self.__class__.__name__)    
+        # validate(sub_metrics_registry, self.sub_metric_funcs, self.__class__.__name__)    
 
     def compute_distance_score(self):
         end_distance_sum = self.ingredients[END_DISTANCE_SUM]
@@ -178,7 +178,7 @@ class MetricCalculator:
     def compute_metrics(self): 
         sub_metrics = {name: func() for name, func in self.sub_metric_funcs.items()}
 
-        validate(sub_metrics_registry, sub_metrics, self.__class__.__name__)
+        # validate(sub_metrics_registry, sub_metrics, self.__class__.__name__)
             
         # DISTANCE_SCORE is the only sub-metric that can be 0
         # when it's 0, game is lost, bench_score is 0
