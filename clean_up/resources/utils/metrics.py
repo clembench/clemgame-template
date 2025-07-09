@@ -1,3 +1,4 @@
+from re import sub
 from typing import Dict, List, Tuple
 from statistics import harmonic_mean
 from math import prod
@@ -30,7 +31,7 @@ CONSISTENCY_SCORE = "Consistency Score"
 COVERAGE_SCORE = "Coverage Score"
 PENALTY_SCORE = "Penalty Score"
 sub_metrics_registry = [DISTANCE_SCORE, CONSISTENCY_SCORE, 
-                        COVERAGE_SCORE, PENALTY_SCORE]
+                        COVERAGE_SCORE]
 
 def validate(key_registry, to_validate: Dict, classname: str): 
     missing = [key for key in key_registry if key not in to_validate]
@@ -118,9 +119,8 @@ class MetricCalculator:
         self.sub_metric_funcs = {
             DISTANCE_SCORE: self.compute_distance_score,
             CONSISTENCY_SCORE: self.compute_consistency_score,
-            COVERAGE_SCORE: self.compute_coverage_score,
-            PENALTY_SCORE: self.compute_penalty_score
-        }    
+            COVERAGE_SCORE: self.compute_coverage_score
+        }
 
         validate(sub_metrics_registry, self.sub_metric_funcs, self.__class__.__name__)    
 
@@ -169,7 +169,7 @@ class MetricCalculator:
         # return product(% of icons moved by each player)
         return prod(coverage_per_player) # we can also plug it in a monotonously increasing function on (0, 1]
 
-    def compute_penalty_score(self):     
+    def compute_penalty_score(self):  
         penalties = self.ingredients[PENALTIES]
         max_penalties = self.ingredients[MAX_PENALTIES]
         normalized = penalties / max_penalties
@@ -185,6 +185,11 @@ class MetricCalculator:
         if sub_metrics[DISTANCE_SCORE] == 0:
             bench_score = 0
 
-        bench_score = harmonic_mean(sub_metrics.values())
+        penalty_score = self.compute_penalty_score()
+
+        # Take the harmonic mean of the sub-metrics, and multiply by the penalty score
+        bench_score = harmonic_mean(sub_metrics.values()) * penalty_score
+
+        sub_metrics[PENALTY_SCORE] = penalty_score
 
         return sub_metrics, bench_score

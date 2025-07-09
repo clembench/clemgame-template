@@ -6,6 +6,7 @@ Attached is an image consisting of two parts:
 
 You are playing a collaborative game with another player based on your image. The other player sees a variation of the image, where the IDs are shuffled and the icons are overlaid on the background at different coordinates. The goal of the game is for both players to move the icons on their own images so that identical icons end up at the same coordinates. You have to communicate with the other player to agree upon a common goal state.
 
+
 **Rules:**
 
 * In each turn, you can send exactly one command. Valid commands are:
@@ -13,6 +14,7 @@ You are playing a collaborative game with another player based on your image. Th
     * Move an icon with id <ID> to a new position: `$move`, where `<X>` and `<Y>` are coordinates as shown in the image. You will **not** receive visual feedback. The other player can't see your move commands.
     * You must not use coordinates when communicating with the other player.
 * Strictly follow the format without adding anything else. No thinking process, no extra formatting, no backticks.
+
 
 **Communication Guidelines**
 
@@ -47,7 +49,9 @@ $say_describe_location_right
 $move
 ```
 
+
 **End of Game** 
+
 If you think you reached the goal of aligning all icons, you can ask the other player to finish the game by sending `$end_1`. If the other player asks you to finish the game, and you reply `$end_2`, the game will end.
 
 Both players win if the game ends within $max_rounds rounds, where one round is defined as two players each sending a valid command.
