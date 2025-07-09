@@ -4,14 +4,14 @@ Im Anhang findest du ein zweiteiliges Bild:
 
 - Auf der linken Seite ist ein Hintergrundbild zu sehen, auf dem diese Symbole an zufälligen Koordinaten platziert sind. Am linken und unteren Rand des Bildes ist ein x-y-Koordinatensystem eingezeichnet. Beachte, dass die Werte auf der y-Achse nach unten hin zunehmen.
 
-Du spielst ein kooperatives Spiel mit einem Spielpartner auf Grundlage dieses Bildes. Dein Mitspieler sieht dieselben Objekte und dasselbe Hintergrundbild. Allerdings haben die Objekte andere IDs und befinden sich an anderen Positionen auf dem Hintergrundbild.Ziel des Spiels ist es, dass beide Spieler die Objekte auf ihren jeweiligen Bildern so verschieben, dass dieselben Objekte jeweils an denselben Positionen landen. Du musst dich mit deinem Mitspieler absprechen, damit ihr euch auf einen gemeinsamen Zielzustand einigen könnt.
+Du spielst ein kooperatives Spiel mit einem Spielpartner auf Grundlage dieses Bildes. Dein Mitspieler sieht dieselben Objekte und dasselbe Hintergrundbild. Allerdings haben die Objekte andere IDs und befinden sich an anderen Positionen auf dem Hintergrundbild. Ziel des Spiels ist es, dass beide Spieler die Objekte auf ihren jeweiligen Bildern so verschieben, dass dieselben Objekte jeweils an denselben Positionen landen. Du musst dich mit deinem Mitspieler absprechen, damit ihr euch auf einen gemeinsamen Zielzustand einigen könnt.
 
 
 **Spielregeln**
 
 * In jedem Spielzug kannst du genau eine der folgenden zwei Aktionen ausführen:
     * `$say`: um deinem Mitspieler eine Nachricht zu schicken
-    * `$move`: um ein Objekt mit der ID <ID> and die Koordinaten <X>,<Y> zu bewegen. Du erhältst kein visuelles Feedback, und dein Mitspieler kann deine Bewegungsbefehle nicht sehen.
+    * `$move`: um ein Objekt mit der ID `<ID>` and die Koordinaten `(<X>,<Y>)` zu bewegen. Du erhältst kein visuelles Feedback, und dein Mitspieler kann deine Bewegungsbefehle nicht sehen.
     * Du darfst keine Koordinaten verwenden, wenn du mit dem anderen Spieler kommunizierst.
 * Halte dich strikt an dieses Format, ohne etwas anderes hinzuzufügen: Kein Denkprozess, keine zusätzliche Formatierung, keine Backticks.
 
@@ -26,27 +26,29 @@ Als erstes müsst ihr euch auf das zu verschiebende Objekt einigen. Da die Objek
     $say_describe_icon_wrong
     ```
 
-Die ID 'D' könnte sich bei deinem Mitspieler auf ein anderes Objekt beziehen als bei dir
+    Die ID 'D' könnte sich bei deinem Mitspieler auf ein anderes Objekt beziehen als bei dir!
 
 * Richtiges Beispiel:
 
-    Angenommen, du beschreibst ein Objekt mit `$icon_description`
+    Angenommen, eines deiner Objekte entspricht der Beschreibung `$icon_description`. Dann kannst du folgende Nachricht schicken:
 
     ```
     $say_describe_icon_right
     ```
 
-    Daraufhin könnt ihr euch auf eine Zielposition einigen. Dabei darfst du keine Koordinaten verwenden! Ihr könnt euch stattdessen am Hintergrund orientieren, auf eine Zielposition einigen, und das vereinbarte Objekt dann mit dem Befehl `$move` verschieben.
+Als nächstes könnt ihr euch auf eine Zielposition einigen. Dabei darfst du keine Koordinaten verwenden! Ihr könnt euch stattdessen am Hintergrund orientieren, auf eine Zielposition einigen, und das vereinbarte Objekt dann mit dem Befehl `$move` verschieben.
 
 * Falsches Beispiel:
 
     ```
     $say_describe_location_wrong
     ```
+    
+    Wenn du Koordinaten oder Zahlen in deiner Nachricht verwendest, kriegt ihr beide einen Strafpunkt.
 
 * Richtiges Beispiel:
 
-    Angenommen, du beschreibst den Zielort mit `$target_location_description` und verwendest Objekte im Hintergrundbild als Referenz
+    Angenommen, du beschreibst den Zielort als `$target_location_description` und verwendest dabei Objekte im Hintergrundbild als Referenz, kannst du folgende Nachricht schicken:
 
     ```
     $say_describe_location_right
