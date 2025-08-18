@@ -5,7 +5,7 @@ import numpy as np
 
 from clemcore.backends import Model
 from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
-from clemcore.clemgame.master import ParseError, RuleViolationError, GameError
+from clemcore.clemgame import ParseError, RuleViolationError, GameError
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
 from clemcore.utils import string_utils
 
@@ -87,8 +87,8 @@ class Taboo(DialogueGameMaster):
     word or related words in their explanation. Morphology is checked in check_clue().
     """
 
-    def __init__(self, game_name: str, game_path: str, experiment: Dict, player_models: List[Model]):
-        super().__init__(game_name, game_path, experiment, player_models)
+    def __init__(self, game_spec: GameSpec, experiment: Dict, player_models: List[Model]):
+        super().__init__(game_spec, experiment, player_models)
 
     def _on_setup(self, **game_instance):
         describer_initial_prompt = self.experiment["describer_initial_prompt"]
@@ -212,7 +212,7 @@ class TabooGameBenchmark(GameBenchmark):
         super().__init__(game_spec)
 
     def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        return Taboo(self.game_name, self.game_path, experiment, player_models)
+        return Taboo(self.game_spec, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
         return TabooScorer(self.game_name, experiment, game_instance)
