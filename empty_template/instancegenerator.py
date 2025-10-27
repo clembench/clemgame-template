@@ -5,19 +5,13 @@ python3 instancegenerator.py
 Creates instance.json file in ./in
 
 """
-import json
 import os
 import random
 import logging
-import openai
-import requests
-import spacy
-import argparse
 
 from clemcore.clemgame import GameInstanceGenerator
-
+# Initialize logging
 logger = logging.getLogger(__name__)
-
 
 N_INSTANCES = 20
 # Seed for reproducibility
