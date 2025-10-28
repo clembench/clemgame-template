@@ -1,6 +1,6 @@
 # Template for creating new `clemgames'
 
-This repository provides example code for starting to develop new games for the `clemcore' environment, as used in the `clembench' project.
+This repository provides example code for starting to develop new games for the `clemcore` environment, as used in the `clembench` project.
 
 [documentation to be further adapted]
 
