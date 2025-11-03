@@ -82,7 +82,6 @@ class SomeGameScorer(GameScorer):
                 self.log_round_score(round_idx,'response_received', 1)
 
     def compute_episode_scores(self, interactions: Dict):
-        # TODO: check how to properly record/access benchscore now
         if interactions[METRIC_SUCCESS]:
             self.log_episode_score(BENCH_SCORE, 100)
         elif interactions[METRIC_LOSE]:
