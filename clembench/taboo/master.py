@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Any
 import logging
 import numpy as np
 
@@ -10,8 +10,10 @@ from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOS
 from clemcore.utils import string_utils
 
 import nltk
+from gymnasium import spaces
 from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
+from numpy._typing import NDArray
 
 nltk.download('stopwords', quiet=True)
 EN_STOPWORDS = stopwords.words('english')
@@ -24,26 +26,52 @@ GUESS_PREFIX = "GUESS:"
 CLUE_PREFIX = "CLUE:"
 
 
-class WordGuesser(Player):
+class WordGuesser(Player, spaces.Text):
 
     def __init__(self, model: Model):
         super().__init__(model)
+        spaces.Text.__init__(self, max_length=8192)
         self._custom_responses = ["Apple", "Banana", "Cherry"]
+
+    def __eq__(self, other):
+        return isinstance(other, WordGuesser) and self.name == other.name
+
+    def __hash__(self):
+        return hash(f"{self.name}")
 
     def _custom_response(self, messages):
         word = self._custom_responses.pop(0)
         return f'{GUESS_PREFIX} {word}'
 
+    def sample(self,
+               mask: None | (tuple[int | None, NDArray[np.int8] | None]) = None,
+               probability: None | (tuple[int | None, NDArray[np.float64] | None]) = None,
+               ) -> str:
+        return self._custom_response([])
 
-class WordDescriber(Player):
+
+class WordDescriber(Player, spaces.Text):
 
     def __init__(self, model: Model):
         super().__init__(model)
+        spaces.Text.__init__(self, max_length=8192)
         self._custom_responses = ["(1) My first clue is ...", "(2) My second clue is ...", "(3) My third clue is ..."]
+
+    def __eq__(self, other):
+        return isinstance(other, WordDescriber) and self.name == other.name
+
+    def __hash__(self):
+        return hash(f"{self.name}")
 
     def _custom_response(self, messages):
         clue = self._custom_responses.pop(0)
         return f"{CLUE_PREFIX} {clue}"
+
+    def sample(self,
+               mask: None | (tuple[int | None, NDArray[np.int8] | None]) = None,
+               probability: None | (tuple[int | None, NDArray[np.float64] | None]) = None,
+               ) -> str:
+        return self._custom_response([])
 
 
 @dataclass
