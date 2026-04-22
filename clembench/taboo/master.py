@@ -1,12 +1,15 @@
-from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, Tuple, List, Union, Optional
 import logging
+from dataclasses import dataclass
 import numpy as np
 
 from clemcore.backends import Model
-from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player, DialogueGameMaster, GameScorer
-from clemcore.clemgame import ParseError, RuleViolationError, GameError
-from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
+from clemcore.clemgame import GameSpec, GameMaster, GameBenchmark, Player
+from clemcore.clemgame.legacy.scorer import GameScorer
+from clemcore.clemgame.legacy.master import DialogueGameMaster
+from clemcore.clemgame.master import GameState
+from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, METRIC_REQUEST_COUNT, \
+    METRIC_REQUEST_COUNT_VIOLATED, METRIC_REQUEST_COUNT_PARSED, METRIC_REQUEST_SUCCESS_RATIO, BENCH_SCORE
 from clemcore.utils import string_utils
 
 import nltk
@@ -20,8 +23,18 @@ EN_STEMMER = SnowballStemmer("english")
 
 logger = logging.getLogger(__name__)
 
-GUESS_PREFIX = "GUESS:"
-CLUE_PREFIX = "CLUE:"
+@dataclass
+class TabooGameState(GameState):
+    target_word: str = None
+    related_words: List[str] = None
+    describer_initial_prompt: str = None
+    guesser_initial_prompt: str = None
+    invalid_response: bool = False
+    clue_error: Optional[Dict] = None
+    guess_word: Optional[str] = None
+
+    def __post_init__(self):
+        super().__init__()
 
 
 class WordGuesser(Player):
@@ -32,7 +45,7 @@ class WordGuesser(Player):
 
     def _custom_response(self, messages):
         word = self._custom_responses.pop(0)
-        return f'{GUESS_PREFIX} {word}'
+        return f'GUESS: {word}'
 
 
 class WordDescriber(Player):
@@ -43,41 +56,39 @@ class WordDescriber(Player):
 
     def _custom_response(self, messages):
         clue = self._custom_responses.pop(0)
-        return f"{CLUE_PREFIX} {clue}"
+        return f"CLUE: {clue}"
 
 
-@dataclass
-class GameState:
-    target_word: str
-    related_words: List[str]
-    max_rounds: int
-    describer_initial_prompt: str
-    guesser_initial_prompt: str
-    success: bool = False
-    failure: bool = False
-    aborted: bool = False
-    clue_error: str = None
-    last_clue: str = None
-    last_guess: str = None
-
-
-def check_clue(response: str, state: GameState, stemmer=EN_STEMMER):
-    clue_words = string_utils.remove_punctuation(response).lower().split(" ")
+def check_clue(clue: str, target_word: str, related_words: List[str],
+               stemmer=EN_STEMMER, return_clue=False) -> Union[Tuple[str, List[Dict]], List[Dict]]:
+    clue = clue.replace("CLUE:", "")
+    clue = clue.strip()
+    clue = clue.lower()
+    clue = string_utils.remove_punctuation(clue)
+    clue_words = clue.split(" ")
     clue_words = [clue_word for clue_word in clue_words if clue_word not in EN_STOPWORDS]
     clue_word_stems = [stemmer.stem(clue_word) for clue_word in clue_words]
-    target_word_stem = stemmer.stem(state.target_word)
-    related_word_stems = [stemmer.stem(related_word) for related_word in state.related_words]
+    errors = []
+    target_word_stem = stemmer.stem(target_word)
+    related_word_stems = [stemmer.stem(related_word) for related_word in related_words]
 
-    for clue_word, clue_word_stem in zip(clue_words, clue_word_stems):  # raise first appearing exception
+    for clue_word, clue_word_stem in zip(clue_words, clue_word_stems):
         if target_word_stem == clue_word_stem:
-            reason = f"Target word '{state.target_word}' (stem={target_word_stem}) " \
-                     f"is similar to clue word '{clue_word}' (stem={clue_word_stem})"
-            raise RuleViolationError(reason, response)
-        for related_word, related_word_stem in zip(state.related_words, related_word_stems):
+            errors.append({
+                "message": f"Target word '{target_word}' (stem={target_word_stem}) "
+                           f"is similar to clue word '{clue_word}' (stem={clue_word_stem})",
+                "type": 0
+            })
+        for related_word, related_word_stem in zip(related_words, related_word_stems):
             if related_word_stem == clue_word_stem:
-                reason = f"Related word '{related_word}' (stem={related_word_stem}) " \
-                         f"is similar to clue word '{clue_word}' (stem={clue_word_stem})"
-                raise RuleViolationError(reason, response)
+                errors.append({
+                    "message": f"Related word '{related_word}' (stem={related_word_stem}) "
+                               f"is similar to clue word '{clue_word}' (stem={clue_word_stem})",
+                    "type": 1
+                })
+    if return_clue:
+        return clue, errors
+    return errors
 
 
 class Taboo(DialogueGameMaster):
@@ -89,18 +100,34 @@ class Taboo(DialogueGameMaster):
 
     def __init__(self, game_spec: GameSpec, experiment: Dict, player_models: List[Model]):
         super().__init__(game_spec, experiment, player_models)
+        self.max_rounds: int = experiment["max_turns"]
+
+    def _format_initial_prompts(self, describer_initial_prompt, guesser_initial_prompt, target_word, related_words):
+        describer_initial_prompt = describer_initial_prompt.replace("$TARGET_WORD$", target_word)
+        rel_words = f"- {related_words[0]}\n- {related_words[1]}\n- {related_words[2]}"
+        describer_initial_prompt = describer_initial_prompt.replace("$REL_WORD$", rel_words)
+        describer_initial_prompt = describer_initial_prompt.replace("$N$", str(self.max_rounds))
+
+        guesser_initial_prompt = guesser_initial_prompt.replace("$N$", str(self.max_rounds))
+
+        return describer_initial_prompt, guesser_initial_prompt
 
     def _on_setup(self, **game_instance):
-        describer_initial_prompt = self.experiment["describer_initial_prompt"]
-        describer_initial_prompt = describer_initial_prompt.replace("$TARGET_WORD$", game_instance["target_word"])
-        rel_words = (f"- {game_instance['related_word'][0]}\n"
-                     f"- {game_instance['related_word'][1]}\n"
-                     f"- {game_instance['related_word'][2]}")
-        describer_initial_prompt = describer_initial_prompt.replace("$REL_WORD$", rel_words)
-        describer_initial_prompt = describer_initial_prompt.replace("$N$", str(self.experiment["max_turns"]))
-
-        guesser_initial_prompt = self.experiment["guesser_initial_prompt"]
-        guesser_initial_prompt = guesser_initial_prompt.replace("$N$", str(self.experiment["max_turns"]))
+        target_word = game_instance["target_word"]
+        related_words = game_instance["related_word"]
+        describer_initial_prompt, guesser_initial_prompt = self._format_initial_prompts(describer_initial_prompt = self.experiment["describer_initial_prompt"],
+                                                                                        guesser_initial_prompt = self.experiment["guesser_initial_prompt"],
+                                                                                        target_word = target_word,
+                                                                                        related_words = related_words)
+        self.state = TabooGameState(
+            target_word = target_word,
+            related_words = related_words,
+            describer_initial_prompt = describer_initial_prompt,
+            guesser_initial_prompt = guesser_initial_prompt,
+            invalid_response = False,
+            clue_error = None,
+            guess_word = None
+        )
 
         self.describer = WordDescriber(self.player_models[0])
         self.guesser = WordGuesser(self.player_models[1])
@@ -108,102 +135,151 @@ class Taboo(DialogueGameMaster):
         self.add_player(self.describer, initial_context=describer_initial_prompt)
         self.add_player(self.guesser, initial_prompt=guesser_initial_prompt)
 
-        # arguments in same order as above
-        self.state = GameState(game_instance["target_word"],
-                               game_instance["related_word"],
-                               self.experiment["max_turns"],
-                               describer_initial_prompt,
-                               guesser_initial_prompt)
-
-    def _does_game_proceed(self):
-        return not (self.state.aborted or self.state.failure or self.state.success)
-
-    def _parse_response(self, player: Player, response: str) -> str:
-        prefix = None
+    def _validate_player_response(self, player: Player, utterance: str) -> bool:
+        is_valid = True
         if player == self.guesser:
-            prefix = GUESS_PREFIX
-        if player == self.describer:
-            prefix = CLUE_PREFIX
-        assert prefix is not None, f"Communication protocol not specified for player {player}"
+            # validate response format
+            if not utterance.startswith("GUESS:"):
+                self.state.invalid_response = True
+                is_valid = False
+                self.log_to_self("invalid format", "abort game")
+                self.state.abort()
+            else:
+                self.log_to_self("valid response", "continue")
+                # extract guess word
+                guess_word = utterance.replace("GUESS:", "")
+                guess_word = guess_word.strip()
+                guess_word = guess_word.lower()
+                guess_word = string_utils.remove_punctuation(guess_word)
+                self.state.guess_word = guess_word.lower()
+                self.log_to_self("valid guess", self.state.guess_word)
+        elif player == self.describer:
+            # validate response format
+            if not utterance.startswith("CLUE:"):
+                self.state.invalid_response = True
+                is_valid = False
+                self.log_to_self("invalid format", "abort game")
+                self.state.abort()
+            else:
+                self.log_to_self("valid response", "continue")
+                # validate clue
+                clue, errors = check_clue(utterance, self.state.target_word, self.state.related_words, return_clue=True)
+                if errors:
+                    error = errors[0]  # highlight single error
+                    self.state.clue_error = error
+                    is_valid = False
+                    self.log_to_self("invalid clue", self.state.clue_error["message"])
+                    self.state.failed()
+                else:
+                    self.log_to_self("valid clue", clue)
+        return is_valid
 
-        # validate communication protocol (this could also be done for each player individually)
-        if not response.startswith(prefix):
-            raise ParseError(f"response must start with {prefix}", response)
-        self.log_to_self("valid response", "continue")
+    def _on_valid_player_response(self, player: Player, parsed_response: str):
+        if self.state.guess_word == self.state.target_word:
+            self.log_to_self("correct guess", "end game")
+            self.state.succeed()
+        else:
+            if player == self.describer:
+                self.set_context_for(self.guesser, parsed_response)
+            if player == self.guesser:
+                self.set_context_for(self.describer, parsed_response)
 
-        # parse response content (here only remove the prefix)
-        return response.replace(prefix, "").strip()
-
-    def _on_parse_error(self, error: ParseError):
-        self.log_to_self("invalid format", "abort game")
-        self.state.aborted = True
-
-    def _advance_game(self, player: Player, parsed_response: str):
-        if player == self.describer:
-            # validate game rules
-            check_clue(parsed_response, self.state)  # throws RuleViolationError
-            self.log_to_self("valid clue", parsed_response)
-            # transition game state
-            self.state.last_clue = parsed_response
-            self.set_context_for(self.guesser, f"{CLUE_PREFIX} {parsed_response}")
-
-        if player == self.guesser:
-            # validate game rules
-            if len(parsed_response.split(" ")) > 1:
-                raise RuleViolationError("guess has more than one word", parsed_response)
-            self.log_to_self("valid guess", parsed_response)
-            # transition game state
-            self.state.last_guess = parsed_response
-            self.set_context_for(self.describer, f"{GUESS_PREFIX} {self.state.last_guess}")  # ignored if success
-
-            # check game end conditions
-            if self.state.last_guess.lower() == self.state.target_word:
-                self.log_to_self("correct guess", "end game")
-                self.state.success = True
-            elif self.current_round == self.state.max_rounds - 1:  # zero-based
-                raise RuleViolationError(f"max rounds ({self.state.max_rounds}) reached")
-
-    def _on_game_error(self, error: GameError):
-        # note: we could also introduce more concrete subclasses e.g. InvalidClueError and handle them here individually
-        self.log_to_self(error.reason, "failed game")
-        self.state.clue_error = error.reason
-        self.state.failure = True
-
-    def compute_turn_score(self):
-        return 1 if self.state.success else 0
-
-    def compute_episode_score(self):
-        if self.state.success:
-            return 100 / (self.current_round + 1)  # zero-based
-        return 0
-
-    def _on_after_game(self):
-        self.log_key(METRIC_ABORTED, int(self.state.aborted))
-        self.log_key(METRIC_LOSE, int(self.state.failure))
-        self.log_key(METRIC_SUCCESS, int(self.state.success))
+    def _on_after_round(self):
+        if self.current_round + 1 >= self.max_rounds:
+            self.log_to_self("max rounds reached", str(self.max_rounds))
+            self.state.failed()
 
 
 class TabooScorer(GameScorer):
     def __init__(self, game_name: str, experiment: Dict, game_instance: Dict):
         super().__init__(game_name, experiment, game_instance)
 
-    def compute_round_score(self, round_idx, round_events: List[Dict]) -> None:
+    def compute_scores(self, episode_interactions: Dict) -> None:
+        if "meta" in episode_interactions:  # if given, copy over meta info
+            self.scores["meta"] = episode_interactions["meta"]
+        if "player_models" in episode_interactions:  # if given, copy over players info
+            self.scores["player_models"] = episode_interactions["player_models"]
+        if "players" in episode_interactions:  # if given, copy over players info
+            self.scores["players"] = episode_interactions["players"]
+        """ Episode level scores"""
+        turn_scores = []
+        prev_guess = None
+        prev_guess_counter = 0
+        prev_clue = None
+        prev_clue_counter = 0
+        invalid_response = False  # Note: This only takes into consideration that both players were compliant or not
         guesser_won = False
-        for event in round_events:
-            if event["action"]["type"] == "correct guess":
-                guesser_won = True
-        self.log_round_score(round_idx, 'Accuracy', 1 if guesser_won else 0)
+        for turn_idx, turn in enumerate(episode_interactions["turns"]):
+            turn_score = {"guess": None, "clue": None, "request_count": 1}
 
-    def compute_episode_scores(self, interactions: Dict):
-        num_rounds = len(interactions["turns"])
-        if interactions[METRIC_SUCCESS]:
-            self.log_episode_score(BENCH_SCORE, 100 / num_rounds)
-        elif interactions[METRIC_LOSE]:
-            self.log_episode_score(BENCH_SCORE, 0)
-        elif interactions[METRIC_ABORTED]:
-            self.log_episode_score(BENCH_SCORE, np.nan)
+            for event in turn:
+                action = event["action"]
+                if action["type"] == "invalid format":
+                    invalid_response = True
+                if action["type"] == "guess":
+                    turn_score["guess"] = action["content"]
+                if action["type"] == "clue":
+                    turn_score["clue"] = action["content"]
+                if action["type"] == "correct guess":
+                    guesser_won = True
+
+            if invalid_response:
+                turn_score["violated_request_count"] = 1
+                turn_score["parsed_request_count"] = 0
+            else:
+                turn_score["violated_request_count"] = 0
+                turn_score["parsed_request_count"] = 1
+
+            if turn_score["guess"] is not None and turn_score["guess"] == prev_guess:  # might be None, if clue is wrong
+                prev_guess_counter += 1
+            if turn_score["clue"] is not None and turn_score["clue"] == prev_clue:
+                prev_clue_counter += 1
+            self.log_turn_score(turn_idx, 'Accuracy', 1 if guesser_won else 0)
+            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT_VIOLATED, turn_score["violated_request_count"])
+            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT_PARSED, turn_score["parsed_request_count"])
+            self.log_turn_score(turn_idx, METRIC_REQUEST_COUNT, turn_score["request_count"])
+            prev_guess = turn_score["guess"]
+            prev_clue = turn_score["clue"]
+            turn_scores.append(turn_score)
+
+        violated_request_count = sum([turn["violated_request_count"] for turn in turn_scores])
+        self.log_episode_score(METRIC_REQUEST_COUNT_VIOLATED, violated_request_count)
+
+        parsed_request_count = sum([turn["parsed_request_count"] for turn in turn_scores])
+        self.log_episode_score(METRIC_REQUEST_COUNT_PARSED, parsed_request_count)
+
+        request_count = sum([turn["request_count"] for turn in turn_scores])
+        self.log_episode_score(METRIC_REQUEST_COUNT, request_count)
+
+        self.log_episode_score(METRIC_REQUEST_SUCCESS_RATIO, parsed_request_count / request_count)
+        # checking the last guess (could be None) is ok,
+        # b.c. the game ends only successfully, when there is a correct guess
+
+        # Common metrics
+        if invalid_response:  # whether a violation of the game rules happened (response not parsable)
+            self.log_episode_score(METRIC_ABORTED, 1)
+            self.log_episode_score(METRIC_SUCCESS, 0)
+            self.log_episode_score(METRIC_LOSE, 0)
+            # Game-specific metrics
+            self.log_episode_score(BENCH_SCORE, np.nan)  # metric not applicable
         else:
-            raise ValueError("Missing outcome value (success, failure, abort) in interactions.json")
+            self.log_episode_score(METRIC_ABORTED, 0)
+            if guesser_won:
+                self.log_episode_score(METRIC_SUCCESS, 1)
+                self.log_episode_score(METRIC_LOSE, 0)
+                self.log_episode_score(BENCH_SCORE, 100 / len(turn_scores))  # how early the guesser found the word
+            else:
+                self.log_episode_score(METRIC_SUCCESS, 0)
+                self.log_episode_score(METRIC_LOSE, 1)
+                self.log_episode_score(BENCH_SCORE, 0)  # word not found
+
+        # Game-specific metrics
+        # How often the Guesser repeated a guess
+        self.log_episode_score('Repetition-Guesser', prev_guess_counter)
+        # How often the Describer repeated itself
+        self.log_episode_score('Repetition-Describer', prev_clue_counter)
+        # this might require a side-loop between describer and GM (game should not continue with Guesser)
+        # self.log_episode_score('Rule-following', ...)
 
 
 class TabooGameBenchmark(GameBenchmark):

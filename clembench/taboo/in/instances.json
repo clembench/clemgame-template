@@ -5,32 +5,32 @@
       "game_instances": [
         {
           "game_id": 0,
-          "target_word": "winter",
+          "target_word": "away",
           "related_word": [
-            "cold",
-            "snow",
-            "season"
+            "gone",
+            "distance",
+            "here"
           ],
-          "target_word_stem": "winter",
+          "target_word_stem": "away",
           "related_word_stem": [
-            "cold",
-            "snow",
-            "season"
+            "gone",
+            "distanc",
+            "here"
           ]
         },
         {
           "game_id": 1,
-          "target_word": "independent",
+          "target_word": "respect",
           "related_word": [
-            "autarkical",
-            "strong-minded",
-            "separate"
+            "consideration",
+            "deference",
+            "regard"
           ],
-          "target_word_stem": "independ",
+          "target_word_stem": "respect",
           "related_word_stem": [
-            "autark",
-            "strong-mind",
-            "separ"
+            "considerat",
+            "defer",
+            "regard"
           ]
         }
       ],
@@ -43,32 +43,32 @@
       "game_instances": [
         {
           "game_id": 0,
-          "target_word": "ordinary",
+          "target_word": "declaration",
           "related_word": [
-            "common",
-            "normal",
-            "plain"
+            "law",
+            "resolution",
+            "testimony"
           ],
-          "target_word_stem": "ordinar",
+          "target_word_stem": "declar",
           "related_word_stem": [
-            "common",
-            "normal",
-            "plain"
+            "law",
+            "resolut",
+            "testimoni"
           ]
         },
         {
           "game_id": 1,
-          "target_word": "chicken",
+          "target_word": "bill",
           "related_word": [
-            "hen",
-            "rooster",
-            "bird"
+            "pay",
+            "charge",
+            "invoice"
           ],
-          "target_word_stem": "chicken",
+          "target_word_stem": "bill",
           "related_word_stem": [
-            "hen",
-            "rooster",
-            "bird"
+            "pay",
+            "charg",
+            "invoic"
           ]
         }
       ],
@@ -81,32 +81,32 @@
       "game_instances": [
         {
           "game_id": 0,
-          "target_word": "chan",
+          "target_word": "novelty",
           "related_word": [
-            "chinese",
-            "internet",
-            "irc"
+            "oddity",
+            "originality",
+            "freshness"
           ],
-          "target_word_stem": "chan",
+          "target_word_stem": "novelt",
           "related_word_stem": [
-            "chines",
-            "internet",
-            "irc"
+            "odd",
+            "origin",
+            "fresh"
           ]
         },
         {
           "game_id": 1,
-          "target_word": "rifle",
+          "target_word": "notable",
           "related_word": [
-            "shooting",
-            "long",
-            "gun"
+            "important",
+            "outstanding",
+            "prominent"
           ],
-          "target_word_stem": "rifl",
+          "target_word_stem": "notabl",
           "related_word_stem": [
-            "shoot",
-            "long",
-            "gun"
+            "far-importan",
+            "outstand",
+            "prominen"
           ]
         }
       ],
